@@ -5,7 +5,7 @@ Vercel aloja el sitio y las tres rutas API de Flow. Supabase guarda los pedidos.
 ## Paso a paso
 
 1. **Crea un proyecto de Supabase** o elige el proyecto en el que guardarás los pedidos. El archivo `supabase/migrations/20261120_flow_orders.sql` crea la tabla `flow_orders` y el mecanismo seguro para evitar enviar dos veces el evento de compra de Meta.
-2. **Crea la tabla.** En Supabase abre **SQL Editor → New query**, pega el contenido de `supabase/migrations/20261120_flow_orders.sql` y ejecuta la consulta. No hace falta ejecutar la migración `20260820_nexo_commerce_core.sql` para que funcionen los pagos.
+2. **Crea la tabla.** En Supabase abre **SQL Editor → New query**, pega el contenido de `supabase/migrations/20261120_flow_orders.sql` y ejecuta la consulta. No hace falta ejecutar la migración `20260820_nexo_commerce_core.sql` para que funcionen los pagos. Ejecuta también `supabase/migrations/20261122_flow_orders_customer.sql`, que agrega la columna `customer` con el nombre, el teléfono y la dirección de despacho. Si aún no la ejecutas, los pagos siguen funcionando y esos datos quedan visibles en el panel de Flow, en los datos opcionales de cada pago.
 3. **Copia las credenciales de Supabase.** En **Project Settings → API** copia el Project URL y la llave `service_role`. No uses la llave `service_role` en el frontend ni la compartas; da acceso administrativo a los datos.
 4. **Importa el repositorio en Vercel.** En Vercel selecciona **Add New → Project**, importa el repositorio y deja el Root Directory como `./`. La configuración de `vercel.json` compila el sitio y publica las rutas API.
 5. **Haz un primer deployment** desde Vercel para que se asigne el dominio `*.vercel.app`. Todavía no pruebes el checkout.

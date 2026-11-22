@@ -238,13 +238,75 @@ function giftSummary() {
     giftBooks.map((book,i) => '<img src="img/libro-' + (i+1) + '.webp" alt="' + book.title + '">').join('') +
     '</div><div><strong>3 libros digitales de regalo</strong><p>Colección Nutrición Pura en PDF</p><b>Incluidos · $0</b></div></div>';
 }
+const REGIONS = ['Arica y Parinacota','Tarapacá','Antofagasta','Atacama','Coquimbo','Valparaíso','Metropolitana de Santiago',"Libertador General Bernardo O'Higgins",'Maule','Ñuble','Biobío','La Araucanía','Los Ríos','Los Lagos','Aysén del General Carlos Ibáñez del Campo','Magallanes y de la Antártica Chilena'];
+const CHECKOUT_FIELDS = {
+  firstName: { label:'Nombre', autocomplete:'given-name', max:60 },
+  lastName: { label:'Apellido', autocomplete:'family-name', max:60 },
+  email: { label:'Correo electrónico', type:'email', autocomplete:'email', max:254, hint:'Aquí te llega el comprobante de Flow.' },
+  phone: { label:'Celular', type:'tel', autocomplete:'tel-national', max:20, placeholder:'9 1234 5678', hint:'Para coordinar la entrega.' },
+  region: { label:'Región', options:REGIONS, autocomplete:'address-level1' },
+  comuna: { label:'Comuna', autocomplete:'address-level2', max:80 },
+  address: { label:'Calle y número', autocomplete:'address-line1', max:150, placeholder:'Av. Ejemplo 1234' },
+  unit: { label:'Depto, casa u oficina', autocomplete:'address-line2', max:60, optional:true },
+  notes: { label:'Indicaciones para el despacho', max:200, optional:true, textarea:true, placeholder:'Ej.: dejar en conserjería' }
+};
+const fieldError = {
+  firstName: value => /^\p{L}[\p{L}\s'.-]*$/u.test(value) ? '' : 'Ingresa tu nombre.',
+  lastName: value => /^\p{L}[\p{L}\s'.-]*$/u.test(value) ? '' : 'Ingresa tu apellido.',
+  email: value => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value) ? '' : 'Ingresa un correo válido, por ejemplo nombre@gmail.com.',
+  phone: value => /^9\d{8}$/.test(value.replace(/\D/g, '').replace(/^56/, '')) ? '' : 'Ingresa un celular chileno de 9 dígitos, por ejemplo 9 1234 5678.',
+  region: value => REGIONS.includes(value) ? '' : 'Elige tu región.',
+  comuna: value => value.trim().length >= 2 ? '' : 'Ingresa tu comuna.',
+  address: value => value.trim().length >= 4 && /\d/.test(value) ? '' : 'Ingresa la calle y el número.'
+};
+function fieldMarkup(name) {
+  const field = CHECKOUT_FIELDS[name];
+  const saved = read('np-checkout-customer', {})?.[name] || '';
+  const value = String(saved).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  const common = ' id="co-' + name + '" name="' + name + '"' + (field.autocomplete ? ' autocomplete="' + field.autocomplete + '"' : '') + (field.optional ? '' : ' required') + ' aria-describedby="co-' + name + '-msg"';
+  let control;
+  if (field.options) control = '<select' + common + '><option value="">Elige tu región</option>' + field.options.map(option => '<option' + (option === saved ? ' selected' : '') + '>' + option + '</option>').join('') + '</select>';
+  else if (field.textarea) control = '<textarea' + common + ' maxlength="' + field.max + '" rows="2"' + (field.placeholder ? ' placeholder="' + field.placeholder + '"' : '') + '>' + value + '</textarea>';
+  else control = '<input' + common + ' type="' + (field.type || 'text') + '" maxlength="' + field.max + '" value="' + value + '"' + (field.placeholder ? ' placeholder="' + field.placeholder + '"' : '') + '>';
+  return '<div class="field field-' + name + '"><label for="co-' + name + '">' + field.label + (field.optional ? ' <small>(opcional)</small>' : '') + '</label>' + control +
+    '<p class="field-msg" id="co-' + name + '-msg">' + (field.hint || '') + '</p></div>';
+}
+function checkoutForm() {
+  return '<form class="checkout-form" id="flow-checkout-form" novalidate>' +
+    '<fieldset><legend>Tus datos</legend><div class="field-row">' + fieldMarkup('firstName') + fieldMarkup('lastName') + '</div>' + fieldMarkup('email') + fieldMarkup('phone') + '</fieldset>' +
+    '<fieldset><legend>¿Dónde te lo enviamos?</legend>' + fieldMarkup('region') + fieldMarkup('comuna') + fieldMarkup('address') + fieldMarkup('unit') + fieldMarkup('notes') + '</fieldset>' +
+    '<p class="checkout-note">Flow procesará tu pago de forma segura con tarjeta de crédito, débito o transferencia. Los libros digitales estarán disponibles al confirmar el pago.</p>' +
+    '<p class="checkout-error" id="checkout-error" role="alert" hidden></p><button class="pill wide" type="submit">PAGAR CON FLOW</button></form>';
+}
+function showFieldError(form, name, message) {
+  const control = form.elements[name];
+  const msg = byId('co-' + name + '-msg');
+  if (!control || !msg) return;
+  control.setAttribute('aria-invalid', String(Boolean(message)));
+  msg.textContent = message || CHECKOUT_FIELDS[name].hint || '';
+  msg.classList.toggle('is-error', Boolean(message));
+}
+function validateCheckout(form) {
+  let first = null;
+  Object.keys(fieldError).forEach(name => {
+    const message = fieldError[name](form.elements[name].value.trim());
+    showFieldError(form, name, message);
+    if (message && !first) first = form.elements[name];
+  });
+  return first;
+}
+byId('checkout-body').addEventListener('change', event => {
+  const form = event.target.form;
+  if (!form || form.id !== 'flow-checkout-form' || !fieldError[event.target.name]) return;
+  if (event.target.getAttribute('aria-invalid') !== null || event.target.value) showFieldError(form, event.target.name, fieldError[event.target.name](event.target.value.trim()));
+});
 function checkout() {
   if (!Object.values(cart).some(quantity => quantity > 0)) return;
   const amounts = totals();
   byId('checkout-body').innerHTML = '<div class="checkout-welcome"><p class="eyebrow">UN MOMENTO PARA TI</p><h3>Tu bienestar empieza aquí.</h3><p>Revisa lo que elegiste y los regalos que te acompañan.</p></div><div class="checkout-items">' +
     products.filter(item => cart[item.id]).map(item => '<div class="checkout-item">' + photoMarkup(item.main) + '<div><strong>' + item.title + '</strong><small>' + cart[item.id] + ' × ' + money(item.price) + '</small></div></div>').join('') + '</div>' +
     giftSummary() + '<p class="total"><span>Descuento web · 10 %</span><span>−' + money(amounts.savings) + '</span></p><p class="total"><span>Despacho</span><span>' + money(amounts.shipping) + '</span></p><p class="total checkout-grand"><strong>Total a pagar</strong><strong>' + money(amounts.total) + '</strong></p><p class="checkout-note">El total incluye el despacho de $3.990.</p>' +
-    '<button class="back-cart" id="back-cart">← Volver al carrito</button><form class="checkout-form" id="flow-checkout-form"><label for="checkout-email">Correo electrónico para el pago<input id="checkout-email" name="email" type="email" autocomplete="email" maxlength="254" required></label><p class="checkout-note">Flow procesará tu pago de forma segura. Los libros digitales estarán disponibles después de confirmar el pago.</p><p class="checkout-error" id="checkout-error" role="alert" hidden></p><button class="pill wide">PAGAR CON FLOW</button></form>';
+    '<button class="back-cart" id="back-cart">← Volver al carrito</button>' + checkoutForm();
   openDialog('checkout');
 }
 byId('consent-accept').addEventListener('click', () => setMarketingConsent(true));
@@ -287,8 +349,18 @@ byId('checkout-body').addEventListener('submit', event => {
   event.preventDefault();
   if (!Object.values(cart).some(quantity => quantity > 0)) return;
   const form = event.target;
-  const submitButton = form.querySelector('button[type="submit"], button:not([type])');
+  const submitButton = form.querySelector('button[type="submit"]');
   const error = byId('checkout-error');
+  const invalid = validateCheckout(form);
+  if (invalid) {
+    error.textContent = 'Revisa los campos marcados para continuar.';
+    error.hidden = false;
+    invalid.focus();
+    return;
+  }
+  const value = name => form.elements[name].value.trim();
+  const customer = Object.fromEntries(['firstName','lastName','phone','region','comuna','address','unit','notes'].map(name => [name, value(name)]));
+  save('np-checkout-customer', { ...customer, email: value('email') });
   const eventId = newMetaEventId();
   const orderItems = products.filter(item => cart[item.id] > 0).map(item => ({ id: item.id, quantity: cart[item.id] }));
   const orderTotal = totals().total;
@@ -306,7 +378,8 @@ byId('checkout-body').addEventListener('submit', event => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      email: form.elements.email.value.trim(),
+      email: value('email'),
+      customer,
       items: orderItems,
       marketingConsent: marketingConsent === 'granted',
       eventId,
@@ -315,7 +388,10 @@ byId('checkout-body').addEventListener('submit', event => {
     })
   }).then(async response => {
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'No pudimos iniciar el pago.');
+    if (!response.ok) {
+      if (result.field) showFieldError(form, result.field, result.error);
+      throw new Error(result.error || 'No pudimos iniciar el pago.');
+    }
     const checkoutUrl = new URL(result.checkoutUrl);
     if (checkoutUrl.origin !== 'https://www.flow.cl') throw new Error('Flow devolvió una dirección de pago no válida.');
     window.location.assign(checkoutUrl);
@@ -328,6 +404,7 @@ byId('checkout-body').addEventListener('submit', event => {
 });
 renderCart();
 
+const escapeName = text => String(text).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 let flowReturnToken = '';
 async function checkFlowReturn() {
   const params = new URLSearchParams(window.location.search);
@@ -364,7 +441,7 @@ async function refreshFlowStatus() {
       Object.keys(cart).forEach(key => { cart[key] = 0; });
       save('np-nutre-pure-cart', cart);
       renderCart();
-      body.innerHTML = '<div class="checkout-success"><span class="success-mark" aria-hidden="true">✓</span><p class="eyebrow">PAGO CONFIRMADO POR FLOW</p><h3>Gracias por elegir Nutrición Pura.</h3><p>Tu pago fue confirmado. Aquí puedes descargar tus tres libros de regalo.</p></div><div class="gift-delivery"><div class="gift-miniatures">' + giftBooks.map((book,i) => '<img src="img/libro-' + (i+1) + '.webp" alt="' + book.title + '">').join('') + '</div><h3>Tus tres libros de regalo</h3><details class="gift-fallback" open><summary>Descarga la colección en PDF</summary>' + giftBooks.map(book => '<a href="regalos/' + book.file + '.pdf" download>' + book.title + ' ↓</a>').join('') + '</details></div><a class="pill wide" href="#catalogo">VOLVER AL CATÁLOGO</a>';
+      body.innerHTML = '<div class="checkout-success"><span class="success-mark" aria-hidden="true">✓</span><p class="eyebrow">PAGO CONFIRMADO POR FLOW</p><h3>' + (result.firstName ? '¡Gracias, ' + escapeName(result.firstName) + '!' : 'Gracias por elegir Nutrición Pura.') + '</h3><p>Tu pago fue confirmado. Aquí puedes descargar tus tres libros de regalo.</p></div><div class="gift-delivery"><div class="gift-miniatures">' + giftBooks.map((book,i) => '<img src="img/libro-' + (i+1) + '.webp" alt="' + book.title + '">').join('') + '</div><h3>Tus tres libros de regalo</h3><details class="gift-fallback" open><summary>Descarga la colección en PDF</summary>' + giftBooks.map(book => '<a href="regalos/' + book.file + '.pdf" download>' + book.title + ' ↓</a>').join('') + '</details></div><a class="pill wide" href="#catalogo">VOLVER AL CATÁLOGO</a>';
     } else if (result.status === 'pending') {
       body.innerHTML = '<div class="checkout-note" role="status">Flow todavía no confirma el pago. Tus libros estarán disponibles cuando se confirme.</div><button class="pill wide" id="verify-flow-payment">VERIFICAR NUEVAMENTE</button><a class="pill wide" href="#catalogo">VOLVER AL CATÁLOGO</a>';
     } else {

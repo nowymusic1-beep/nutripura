@@ -53,20 +53,20 @@ const ORBITS = {
     bottle: 'img/magnesio.png',
     bottleAlt: 'Frasco de Magnesium Complex Nutre Pure rodeado por sus siete componentes',
     items: [
-      { name:'Glicinato de magnesio', benefit:'Forma quelada', icon:'gem', photo:'img/magnesio/glicinato.webp',
-        text:'Magnesio unido al aminoácido glicina. Es una de las formas que más se eligen porque suele ser bien tolerada a nivel digestivo.', alt:'Ilustración de una molécula', caption:'Ilustración Nutrición Pura' },
-      { name:'Citrato de magnesio', benefit:'Buena solubilidad', icon:'citrus', photo:'img/magnesio/citrato.webp',
-        text:'Magnesio unido al ácido cítrico, una de las formas más estudiadas por lo bien que se disuelve. En cantidades altas puede tener efecto laxante.', alt:'Ilustración de una rodaja de limón', caption:'Ilustración Nutrición Pura' },
-      { name:'Malato de magnesio', benefit:'Ácido málico de las frutas', icon:'apple', photo:'img/magnesio/malato.webp',
-        text:'Magnesio unido al ácido málico, presente en frutas como la manzana. El magnesio contribuye al metabolismo energético normal.', alt:'Ilustración de una manzana verde', caption:'Ilustración Nutrición Pura' },
-      { name:'Vitamina B6', benefit:'Sistema nervioso', icon:'brain', photo:'img/magnesio/b6.webp',
-        text:'Contribuye al funcionamiento normal del sistema nervioso y a disminuir el cansancio y la fatiga.', alt:'Ilustración de garbanzos, fuente de vitamina B6', caption:'Ilustración Nutrición Pura' },
-      { name:'Zinc', benefit:'Defensas', icon:'shield', photo:'img/magnesio/zinc.webp',
-        text:'Contribuye al funcionamiento normal del sistema inmunitario y a proteger las células frente al daño oxidativo.', alt:'Ilustración de semillas de zapallo, fuente de zinc', caption:'Ilustración Nutrición Pura' },
-      { name:'Potasio', benefit:'Músculos y presión arterial', icon:'heart', photo:'img/magnesio/potasio.webp',
-        text:'Contribuye al funcionamiento normal de los músculos y al mantenimiento de una presión arterial normal.', alt:'Ilustración de una palta, fuente de potasio', caption:'Ilustración Nutrición Pura' },
-      { name:'Minerales traza', benefit:'Oligoelementos', icon:'sparkles', photo:'img/magnesio/minerales.webp',
-        text:'Minerales que el cuerpo necesita en cantidades muy pequeñas. Revisa la etiqueta para conocer cuáles incluye y en qué cantidad.', alt:'Ilustración de cristales minerales', caption:'Ilustración Nutrición Pura' }
+      { name:'Glicinato de magnesio', benefit:'Forma quelada', icon:'gem', photo:'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Magnesium_crystals.jpg/960px-Magnesium_crystals.jpg',
+        text:'Magnesio unido al aminoácido glicina. Es una de las formas que más se eligen porque suele ser bien tolerada a nivel digestivo.', alt:'Cristales de magnesio', caption:'Magnesio elemental (no es la forma del suplemento)', file:'Magnesium_crystals.jpg', author:'Warut Roonguthai', license:'CC BY-SA 3.0', licenseUrl:'https://creativecommons.org/licenses/by-sa/3.0/' },
+      { name:'Citrato de magnesio', benefit:'Buena solubilidad', icon:'citrus', photo:'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Lemon_-_whole_and_split.jpg/960px-Lemon_-_whole_and_split.jpg',
+        text:'Magnesio unido al ácido cítrico, una de las formas más estudiadas por lo bien que se disuelve. En cantidades altas puede tener efecto laxante.', alt:'Limón entero y partido', caption:'Limón, fuente de ácido cítrico', file:'Lemon_-_whole_and_split.jpg', author:'Ivar Leidus', license:'CC BY-SA 4.0', licenseUrl:'https://creativecommons.org/licenses/by-sa/4.0/' },
+      { name:'Malato de magnesio', benefit:'Ácido málico de las frutas', icon:'apple', photo:'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Apples_in_basket_2018_G1.jpg/960px-Apples_in_basket_2018_G1.jpg',
+        text:'Magnesio unido al ácido málico, presente en frutas como la manzana. El magnesio contribuye al metabolismo energético normal.', alt:'Canasta de manzanas', caption:'Manzanas, fuente de ácido málico', file:'Apples_in_basket_2018_G1.jpg', author:'George Chernilevsky', license:'Dominio público', licenseUrl:'https://creativecommons.org/publicdomain/mark/1.0/' },
+      { name:'Vitamina B6', benefit:'Sistema nervioso', icon:'brain', photo:'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Sa-whitegreen-chickpea.jpg/960px-Sa-whitegreen-chickpea.jpg',
+        text:'Contribuye al funcionamiento normal del sistema nervioso y a disminuir el cansancio y la fatiga.', alt:'Garbanzos secos', caption:'Garbanzos, fuente de vitamina B6', file:'Sa-whitegreen-chickpea.jpg', author:'Sanjay Acharya', license:'CC BY-SA 3.0', licenseUrl:'https://creativecommons.org/licenses/by-sa/3.0/' },
+      { name:'Zinc', benefit:'Defensas', icon:'shield', photo:'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Pumpkin_seeds.jpg/960px-Pumpkin_seeds.jpg',
+        text:'Contribuye al funcionamiento normal del sistema inmunitario y a proteger las células frente al daño oxidativo.', alt:'Semillas de zapallo', caption:'Semillas de zapallo, fuente de zinc', file:'Pumpkin_seeds.jpg', author:'IvanNedialkov', license:'CC BY 2.5', licenseUrl:'https://creativecommons.org/licenses/by/2.5/' },
+      { name:'Potasio', benefit:'Músculos y presión arterial', icon:'heart', photo:'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Avocado_Hass_-_single_and_halved.jpg/960px-Avocado_Hass_-_single_and_halved.jpg',
+        text:'Contribuye al funcionamiento normal de los músculos y al mantenimiento de una presión arterial normal.', alt:'Palta Hass entera y partida', caption:'Palta, fuente de potasio', file:'Avocado_Hass_-_single_and_halved.jpg', author:'Ivar Leidus', license:'CC BY-SA 4.0', licenseUrl:'https://creativecommons.org/licenses/by-sa/4.0/' },
+      { name:'Minerales traza', benefit:'Oligoelementos', icon:'sparkles', photo:'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Sea_salt.jpg/960px-Sea_salt.jpg',
+        text:'Minerales que el cuerpo necesita en cantidades muy pequeñas. Revisa la etiqueta para conocer cuáles incluye y en qué cantidad.', alt:'Cristales de sal de mar', caption:'Sal de mar, con minerales traza', file:'Sea_salt.jpg', author:'Liushiye', license:'CC BY-SA 4.0', licenseUrl:'https://creativecommons.org/licenses/by-sa/4.0/' }
     ]
   }
 };

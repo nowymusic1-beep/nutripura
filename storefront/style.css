@@ -240,3 +240,19 @@ a.product-rating:hover{text-decoration:underline}
 @media(min-width:760px){.reviews-head{display:grid}}
 .reviews-head{display:grid}
 .product-body .tag{align-self:flex-start}
+
+/* Formulario de pago y despacho */
+.checkout-form fieldset{border:0;padding:0;margin:0 0 8px;display:grid;gap:12px}
+.checkout-form legend{font-size:16px;font-weight:800;color:var(--deep);padding:0;margin:14px 0 10px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{display:grid;gap:5px}
+.field label{font-size:13px;font-weight:700}
+.field label small{font-weight:400;color:#6a6d68}
+.checkout-form .field input,.checkout-form .field select,.checkout-form .field textarea{border:1px solid #a8a8a8;border-radius:8px;padding:11px 12px;width:100%;font:inherit;font-size:16px;background:#fff;color:inherit}
+.checkout-form .field textarea{resize:vertical;min-height:60px}
+.field [aria-invalid=true]{border-color:#a13227!important;background:#fff8f7!important}
+.field-msg{font-size:12px;color:#62685f;min-height:0}
+.field-msg:empty{display:none}
+.field-msg.is-error{color:#a13227;font-weight:700}
+.checkout-form button[type=submit]{min-height:52px;font-size:15px}
+@media(max-width:380px){.field-row{grid-template-columns:1fr}}

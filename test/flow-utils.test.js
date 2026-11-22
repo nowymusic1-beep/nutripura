@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateOrder, mapFlowStatus, signFlowParams } from "../lib/flow-utils.js";
+import {
+  calculateOrder, firstNameFromFlowOptional, flowOptionalData, mapFlowStatus,
+  normalizeChileanPhone, signFlowParams, validateCustomer,
+} from "../lib/flow-utils.js";
 import { createMetaEvent } from "../lib/meta-utils.js";
 
 test("calculates the same discounted total for a two-product order", () => {
@@ -71,4 +74,47 @@ test("builds a deduplicatable Meta event with hashed email and product data", ()
     content_ids: ["berberina"],
     contents: [{ id: "berberina", quantity: 1 }],
   });
+});
+
+test("normalizes Chilean mobile numbers", () => {
+  for (const value of ["912345678", "9 1234 5678", "+56 9 1234 5678", "56912345678"]) {
+    assert.equal(normalizeChileanPhone(value), "+56912345678");
+  }
+  for (const value of ["12345678", "812345678", "+56 2 2123 4567", ""]) {
+    assert.equal(normalizeChileanPhone(value), null);
+  }
+});
+
+const validCustomer = {
+  firstName: " María José ", lastName: "Pérez", phone: "9 1234 5678",
+  region: "Metropolitana de Santiago", comuna: "Ñuñoa", address: "Av. Irarrázaval 1234",
+  unit: "Depto 52", notes: "",
+};
+
+test("validates and normalizes shipping details", () => {
+  assert.deepEqual(validateCustomer(validCustomer), {
+    firstName: "María José", lastName: "Pérez", phone: "+56912345678",
+    region: "Metropolitana de Santiago", comuna: "Ñuñoa", address: "Av. Irarrázaval 1234",
+    unit: "Depto 52", notes: "",
+  });
+});
+
+test("reports which shipping field is missing", () => {
+  for (const [field, patch] of [
+    ["firstName", { firstName: "" }],
+    ["lastName", { lastName: "123" }],
+    ["phone", { phone: "22123456" }],
+    ["region", { region: "Santiago" }],
+    ["comuna", { comuna: "" }],
+    ["address", { address: "Sin número" }],
+  ]) {
+    assert.throws(() => validateCustomer({ ...validCustomer, ...patch }), (error) => error.field === field);
+  }
+});
+
+test("sends shipping details to Flow and reads the first name back", () => {
+  const optional = flowOptionalData(validateCustomer(validCustomer));
+  assert.equal(JSON.parse(optional).Direccion, "Av. Irarrázaval 1234");
+  assert.equal(firstNameFromFlowOptional(optional), "María");
+  assert.equal(firstNameFromFlowOptional("no es json"), null);
 });
