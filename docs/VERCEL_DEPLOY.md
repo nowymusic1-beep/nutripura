@@ -17,7 +17,7 @@ Vercel aloja el sitio y las tres rutas API de Flow. Supabase guarda los pedidos.
    - `FLOW_SECRET_KEY`: secreto de firma de Flow.
    - `META_CAPI_ACCESS_TOKEN`: token de Meta Conversions API.
    - `SITE_URL`: origen del dominio público, sin ruta; por ejemplo `https://nutricionpura.cl`.
-   - `FLOW_RETURN_URL`: URL completa de retorno; por ejemplo `https://nutricionpura.cl/?flow=return`.
+   - `FLOW_RETURN_URL`: URL completa de retorno; por ejemplo `https://www.nutricionpura.cl/api/flow/return`. Flow devuelve al cliente con un POST; esa ruta lo redirige a la tienda con el identificador del pago.
    - `FLOW_CONFIRMATION_URL`: URL completa `https://nutricionpura.cl/api/flow/confirmation`.
    - `ALLOWED_ORIGINS`: orígenes permitidos separados por comas; por ejemplo `https://nutricionpura.cl,https://www.nutricionpura.cl`.
 
@@ -36,6 +36,7 @@ Los pedidos existentes en otro almacenamiento no se copian automáticamente a Su
 - `POST /api/flow/create`: valida los productos y crea un pago en Flow.
 - `POST /api/flow/status`: consulta a Flow y devuelve el estado verificado.
 - `POST /api/flow/confirmation`: recibe la notificación de Flow y actualiza Supabase.
+- `POST /api/flow/return`: recibe al cliente cuando vuelve de Flow (pague o no) y lo redirige a la tienda para mostrar el estado del pago.
 
 La aplicación nunca confía solo en el retorno del navegador: verifica el importe, la moneda y el número de pedido con Flow. La tabla de pedidos tiene RLS habilitado y no concede acceso a usuarios anónimos o autenticados; solo la API servidor usa la llave `service_role`.
 

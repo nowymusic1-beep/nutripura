@@ -5,6 +5,7 @@ import express from "express";
 import flowConfirmation from "./api/flow/confirmation.js";
 import createFlowPayment from "./api/flow/create.js";
 import getFlowPaymentStatus from "./api/flow/status.js";
+import flowReturn from "./api/flow/return.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const storefrontDir = path.join(__dirname, "storefront");
@@ -22,6 +23,7 @@ app.use(express.urlencoded({ extended: false, limit: "100kb" }));
 app.all("/api/flow/create", createFlowPayment);
 app.all("/api/flow/status", getFlowPaymentStatus);
 app.all("/api/flow/confirmation", flowConfirmation);
+app.all("/api/flow/return", flowReturn);
 
 app.use(express.static(staticDir));
 
