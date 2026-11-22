@@ -14,14 +14,30 @@ const pics = {
   ritual: 'Magnesium Complex Nutre Pure junto a agua con limón',
   duo: 'Berberina y Magnesium Complex Nutre Pure'
 };
+// Enlaces a las publicaciones de Mercado Libre. Reemplázalos por tus enlaces de referido.
+const MERCADO_LIBRE_LINKS = {
+  berberina: 'https://www.mercadolibre.cl/berberina-nutre-pure-control-azucar-gotas-60-ml/up/MLCU3934624235',
+  magnesio: 'https://www.mercadolibre.cl/magnesio-complex-gotas-nutre-pure-50-ml/up/MLCU5850421298'
+};
 const products = [
   { id:'berberina', title:'Berberina Nutre Pure', price:24990, tag:'BERBERINA', main:'berberina',
-    slides:['berberina'],
-    notes:['Fórmula herbal líquida de 60 ml','Presentación en frasco con gotario'] },
+    slides:['berberina'], size:'60 ml',
+    pitch:'Fórmula 7 en 1 con berberina, canela de Ceilán, cromo, melón amargo, cúrcuma, ginseng y glucomanano.',
+    rating:{ value:'4,4', count:110 },
+    notes:['7 componentes en una sola fórmula líquida','Unas gotas en agua, con suave sabor a frambuesa'] },
   { id:'magnesio', title:'Magnesium Complex Nutre Pure', price:14850, tag:'MAGNESIO', main:'magnesio',
-    slides:['magnesio'],
-    notes:['Complejo mineral líquido de 50 ml','Presentación en frasco con gotario'] }
+    slides:['magnesio'], size:'50 ml',
+    pitch:'Tres formas de magnesio (glicinato, citrato y malato) con vitamina B6, zinc, potasio y minerales traza.',
+    notes:['El magnesio contribuye a disminuir el cansancio','Y al funcionamiento normal de músculos y sistema nervioso'] }
 ];
+const webPrice = product => product.price - Math.round(product.price * .1);
+const CROSS_SELL = {
+  berberina: { offer:'magnesio', title:'¿Sumas el magnesio a tu rutina?',
+    text:'Magnesium Complex combina 3 formas de magnesio con vitamina B6, zinc y potasio. El magnesio contribuye a disminuir el cansancio y al funcionamiento normal de los músculos.' },
+  magnesio: { offer:'berberina', title:'¿Completas tu rutina con berberina?',
+    text:'Berberina Nutre Pure reúne 7 componentes en una fórmula líquida: berberina, canela de Ceilán, cromo, melón amargo, cúrcuma, ginseng y glucomanano.' }
+};
+const PAYMENT_METHODS = ['Tarjeta de crédito','Tarjeta de débito','Transferencia'];
 const read = (key, fallback) => {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
 };
@@ -102,15 +118,29 @@ function photoMarkup(name, extra = '') {
 }
 byId('products').innerHTML = products.map(product => {
   const slides = product.slides;
+  const rating = product.rating
+    ? `<a class="product-rating" href="#opiniones"><span aria-hidden="true">★★★★★</span> ${product.rating.value} · ${product.rating.count} opiniones en Mercado Libre</a>`
+    : '<p class="product-rating is-new">Nuevo en la tienda</p>';
   return `<article class="product" id="${product.id}">
     <div class="gallery" tabindex="0" aria-label="Galería de ${product.tag}">
       ${slides.map((name, i) => `<button data-photo="${name}" class="${i === 0 ? 'product-packshot' : ''}" aria-label="Ampliar imagen ${i + 1}">${photoMarkup(name)}</button>`).join('')}
+      <span class="product-badge">−10 % web</span>
     </div>
-    <div class="product-quickbuy"><p class="product-price"><del>${money(product.price)}</del> <strong>${money(product.price - Math.round(product.price * .1))}</strong><small>10 % de descuento web</small></p><p class="shipping-price">Envío: <strong>${money(SHIPPING_FEE)}</strong> por pedido</p><button class="pill" data-add="${product.id}">COMPRAR ${product.tag}</button></div>
-    <span class="tag">${product.tag}</span><h3>${product.title}</h3>
-    <ul>${product.notes.map(note => '<li>' + note + '</li>').join('')}</ul>
-    <div class="product-facts"><span>Contenido<br><b>${product.id === 'berberina' ? '60 ml' : '50 ml'}</b></span><span>Presentación<br><b>En gotas</b></span></div>
-    <button class="pill product-bottom-cta" data-add="${product.id}">AGREGAR AL CARRITO</button>
+    <div class="product-body">
+      <span class="tag">${product.tag} · ${product.size}</span><h3>${product.title}</h3>${rating}
+      <p class="product-pitch">${product.pitch}</p>
+      <ul>${product.notes.map(note => '<li>' + note + '</li>').join('')}</ul>
+      <div class="product-buy">
+        <p class="product-price"><del>${money(product.price)}</del> <strong>${money(webPrice(product))}</strong></p>
+        <p class="product-gift">Incluye <b>3 libros digitales de regalo</b></p>
+        <button class="pill buy-now" data-add="${product.id}">Comprar ahora</button>
+        <p class="shipping-price">Despacho a todo Chile: ${money(SHIPPING_FEE)} por pedido</p>
+      </div>
+      <div class="pay-methods" aria-label="Medios de pago">
+        <p><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Pago seguro con <b>Flow</b></p>
+        <ul>${PAYMENT_METHODS.map(method => '<li>' + method + '</li>').join('')}</ul>
+      </div>
+    </div>
   </article>`;
 }).join('');
 
@@ -160,9 +190,31 @@ function renderCart(focusControl) {
       <div class="qty"><button data-qty="${item.id}" data-delta="-1" aria-label="Quitar una unidad de ${item.title}">−</button><span>${cart[item.id]}</span><button data-qty="${item.id}" data-delta="1" ${cart[item.id] >= 99 ? "disabled" : ""} aria-label="Agregar una unidad de ${item.title}">+</button></div></div><span>${money(cart[item.id] * item.price)}</span></div>`).join('') +
       '<p class="total"><span>Subtotal</span><span>' + money(amounts.subtotal) + '</span></p>' +
       '<p class="total"><span>Descuento web 10 %</span><span>−' + money(amounts.savings) + '</span></p>' +
-      giftSummary() + '<p class="total"><span>Despacho</span><span>' + money(amounts.shipping) + '</span></p><p class="total"><strong>Total a pagar</strong><strong>' + money(amounts.total) + '</strong></p><button class="pill wide" id="continue-checkout">CONTINUAR AL PEDIDO</button>';
+      crossSell() + giftSummary() + '<p class="total"><span>Despacho</span><span>' + money(amounts.shipping) + '</span></p><p class="total"><strong>Total a pagar</strong><strong>' + money(amounts.total) + '</strong></p><button class="pill wide" id="continue-checkout">CONTINUAR AL PEDIDO</button>';
   }
   if (focusControl) (byId('cart-body').querySelector(focusControl) || byId('cart').querySelector('[data-close]')).focus();
+}
+function crossSell() {
+  const inCart = products.filter(item => cart[item.id] > 0).map(item => item.id);
+  if (inCart.length !== 1) return '';
+  const pitch = CROSS_SELL[inCart[0]];
+  const offer = products.find(item => item.id === pitch.offer);
+  return '<div class="cross-sell">' + photoMarkup(offer.main) + '<div><strong>' + pitch.title + '</strong><p>' + pitch.text + '</p>' +
+    '<p class="cross-sell-price"><del>' + money(offer.price) + '</del> <b>' + money(webPrice(offer)) + '</b> con tu 10 %</p>' +
+    '<button class="pill" data-add="' + offer.id + '" data-cross-sell>Agregar ' + (offer.id === 'magnesio' ? 'magnesio' : 'berberina') + '</button></div></div>';
+}
+function addToCart(id) {
+  const product = products.find(item => item.id === id);
+  if (!product) return;
+  selectProduct(id);
+  changeQuantity(id, 1);
+  trackMeta('AddToCart', {
+    content_ids: [product.id],
+    content_type: 'product',
+    value: webPrice(product),
+    currency: 'CLP'
+  }, newMetaEventId());
+  openDialog('cart');
 }
 function changeQuantity(id, delta) {
   if (!Object.hasOwn(cart, id)) return;
@@ -217,18 +269,7 @@ document.addEventListener('click', event => {
   if (button.dataset.selectProduct) selectProduct(button.dataset.selectProduct, true);
   if ('close' in button.dataset) button.closest('dialog').close();
   if (button.dataset.open) openDialog(button.dataset.open);
-  if (button.dataset.add) {
-    selectProduct(button.dataset.add);
-    changeQuantity(button.dataset.add, 1);
-    const product = products.find(item => item.id === button.dataset.add);
-    if (product) trackMeta('AddToCart', {
-      content_ids: [product.id],
-      content_type: 'product',
-      value: product.price - Math.round(product.price * .1),
-      currency: 'CLP'
-    }, newMetaEventId());
-    openDialog('cart');
-  }
+  if (button.dataset.add) addToCart(button.dataset.add);
   if (button.dataset.qty) changeQuantity(button.dataset.qty, Number(button.dataset.delta));
   if (button.dataset.photo) {
     const photo = byId('full-photo');
@@ -338,31 +379,6 @@ byId('checkout-body').addEventListener('click', event => {
   if (event.target.id === 'verify-flow-payment') refreshFlowStatus();
 });
 checkFlowReturn();
-
-const routines = [
-  ['Un hábito a la vez','Ten tu gotario a mano en el lugar donde preparas tu agua.'],
-  ['Tu momento del día','Revisa la presentación y las indicaciones del envase antes de incorporarlo a tu rutina.'],
-  ['Explora las dos fórmulas','Compara las presentaciones de berberina y magnesio de Nutre Pure.']
-];
-let quoteIndex = 0;
-function renderQuote(index) {
-  quoteIndex = (index + routines.length) % routines.length;
-  const [title, copy] = routines[quoteIndex];
-  byId('quote').innerHTML = '<h3>' + title + '</h3><p>' + copy + '</p>';
-  byId('quote-dots').querySelectorAll('button').forEach((dot, i) => dot.setAttribute('aria-current', String(i === quoteIndex)));
-}
-byId('quote-dots').innerHTML = routines.map((_, i) => '<button aria-label="Mostrar rutina ' + (i + 1) + '"></button>').join('');
-byId('quote-dots').querySelectorAll('button').forEach((dot, i) => dot.onclick = () => renderQuote(i));
-byId('prev-quote').onclick = () => renderQuote(quoteIndex - 1);
-byId('next-quote').onclick = () => renderQuote(quoteIndex + 1);
-let swipeStart;
-byId('quote').addEventListener('touchstart', event => { swipeStart = event.changedTouches[0].clientX; }, { passive:true });
-byId('quote').addEventListener('touchend', event => {
-  const distance = event.changedTouches[0].clientX - swipeStart;
-  if (Math.abs(distance) > 35) renderQuote(quoteIndex + (distance < 0 ? 1 : -1));
-}, { passive:true });
-renderQuote(0);
-byId('mosaic').innerHTML = ['berberina','magnesio'].map(name => '<button aria-label="Ampliar: ' + pics[name] + '" data-photo="' + name + '">' + photoMarkup(name) + '</button>').join('');
 
 const observer = new IntersectionObserver(entries => entries.forEach(entry => {
   if (!entry.isIntersecting) return;
