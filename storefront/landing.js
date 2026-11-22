@@ -92,7 +92,7 @@ function renderOrbit(root) {
     const credit = item.file
       ? '<a href="https://commons.wikimedia.org/wiki/File:' + encodeURIComponent(item.file) + '" target="_blank" rel="noopener">Foto: ' + escapeHtml(item.author) + '</a>, <a href="' + item.licenseUrl + '" target="_blank" rel="noopener">' + item.license + '</a>'
       : '';
-    card.innerHTML = '<figure><img src="' + item.photo + '" alt="' + escapeHtml(item.alt) + '"><figcaption>' + escapeHtml(item.caption) + ' · ' + credit + '</figcaption></figure>' +
+    card.innerHTML = '<figure><img src="' + item.photo + '" alt="' + escapeHtml(item.alt) + '"><figcaption>' + escapeHtml(item.caption) + (credit ? ' · ' + credit : '') + '</figcaption></figure>' +
       '<div class="orbit-copy"><p class="orbit-count"><b>' + (index + 1) + '</b> de ' + total + '</p><i class="orbit-icon">' + icon(item.icon) + '</i>' +
       '<p class="orbit-benefit">' + escapeHtml(item.benefit) + '</p><h3>' + escapeHtml(item.name) + '</h3><p>' + escapeHtml(item.text) + '</p></div>';
   }
