@@ -16,7 +16,7 @@ const pics = {
 };
 // Enlaces a las publicaciones de Mercado Libre. Reemplázalos por tus enlaces de referido.
 const MERCADO_LIBRE_LINKS = {
-  berberina: 'https://www.mercadolibre.cl/berberina-nutre-pure-control-azucar-gotas-60-ml/up/MLCU3934624235',
+  berberina: 'https://meli.la/2apy1KR',
   magnesio: 'https://www.mercadolibre.cl/magnesio-complex-gotas-nutre-pure-50-ml/up/MLCU5850421298'
 };
 const products = [
