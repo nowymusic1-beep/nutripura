@@ -6,6 +6,8 @@ import flowConfirmation from "./api/flow/confirmation.js";
 import createFlowPayment from "./api/flow/create.js";
 import getFlowPaymentStatus from "./api/flow/status.js";
 import flowReturn from "./api/flow/return.js";
+import addressAutocomplete from "./api/address/autocomplete.js";
+import addressVerify from "./api/address/verify.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const storefrontDir = path.join(__dirname, "storefront");
@@ -24,6 +26,8 @@ app.all("/api/flow/create", createFlowPayment);
 app.all("/api/flow/status", getFlowPaymentStatus);
 app.all("/api/flow/confirmation", flowConfirmation);
 app.all("/api/flow/return", flowReturn);
+app.all("/api/address/autocomplete", addressAutocomplete);
+app.all("/api/address/verify", addressVerify);
 
 app.use(express.static(staticDir));
 

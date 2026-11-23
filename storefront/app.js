@@ -238,15 +238,15 @@ function giftSummary() {
     giftBooks.map((book,i) => '<img src="img/libro-' + (i+1) + '.webp" alt="' + book.title + '">').join('') +
     '</div><div><strong>3 libros digitales de regalo</strong><p>Colección Nutrición Pura en PDF</p><b>Incluidos · $0</b></div></div>';
 }
-const REGIONS = ['Arica y Parinacota','Tarapacá','Antofagasta','Atacama','Coquimbo','Valparaíso','Metropolitana de Santiago',"Libertador General Bernardo O'Higgins",'Maule','Ñuble','Biobío','La Araucanía','Los Ríos','Los Lagos','Aysén del General Carlos Ibáñez del Campo','Magallanes y de la Antártica Chilena'];
+const REGIONS = CHILE_REGIONS.map(region => region.name);
 const CHECKOUT_FIELDS = {
   firstName: { label:'Nombre', autocomplete:'given-name', max:60 },
   lastName: { label:'Apellido', autocomplete:'family-name', max:60 },
   email: { label:'Correo electrónico', type:'email', autocomplete:'email', max:254, hint:'Aquí te llega el comprobante de Flow.' },
   phone: { label:'Celular', type:'tel', autocomplete:'tel-national', max:20, placeholder:'9 1234 5678', hint:'Para coordinar la entrega.' },
   region: { label:'Región', options:REGIONS, autocomplete:'address-level1' },
-  comuna: { label:'Comuna', autocomplete:'address-level2', max:80 },
-  address: { label:'Calle y número', autocomplete:'address-line1', max:150, placeholder:'Av. Ejemplo 1234' },
+  comuna: { label:'Comuna', communes:true },
+  address: { label:'Calle y número', max:150, placeholder:'Empieza a escribir y elige tu dirección', hint:'Te sugerimos direcciones de Chile mientras escribes.', lookup:true },
   unit: { label:'Depto, casa u oficina', autocomplete:'address-line2', max:60, optional:true },
   notes: { label:'Indicaciones para el despacho', max:200, optional:true, textarea:true, placeholder:'Ej.: dejar en conserjería' }
 };
@@ -256,7 +256,7 @@ const fieldError = {
   email: value => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value) ? '' : 'Ingresa un correo válido, por ejemplo nombre@gmail.com.',
   phone: value => /^9\d{8}$/.test(value.replace(/\D/g, '').replace(/^56/, '')) ? '' : 'Ingresa un celular chileno de 9 dígitos, por ejemplo 9 1234 5678.',
   region: value => REGIONS.includes(value) ? '' : 'Elige tu región.',
-  comuna: value => value.trim().length >= 2 ? '' : 'Ingresa tu comuna.',
+  comuna: (value, form) => CHILE_REGIONS.find(region => region.name === form.elements.region.value)?.communes.includes(value) ? '' : 'Elige tu comuna.',
   address: value => value.trim().length >= 4 && /\d/.test(value) ? '' : 'Ingresa la calle y el número.'
 };
 function fieldMarkup(name) {
@@ -265,7 +265,10 @@ function fieldMarkup(name) {
   const value = String(saved).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const common = ' id="co-' + name + '" name="' + name + '"' + (field.autocomplete ? ' autocomplete="' + field.autocomplete + '"' : '') + (field.optional ? '' : ' required') + ' aria-describedby="co-' + name + '-msg"';
   let control;
-  if (field.options) control = '<select' + common + '><option value="">Elige tu región</option>' + field.options.map(option => '<option' + (option === saved ? ' selected' : '') + '>' + option + '</option>').join('') + '</select>';
+  if (field.communes) control = '<select' + common + (read('np-checkout-customer', {})?.region ? '' : ' disabled') + '>' + communeOptions(read('np-checkout-customer', {})?.region, saved) + '</select>';
+  else if (field.lookup) control = '<div class="address-lookup"><input' + common + ' type="text" autocomplete="off" maxlength="' + field.max + '" value="' + value + '" placeholder="' + field.placeholder + '" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="address-suggestions">' +
+    '<ul id="address-suggestions" class="address-suggestions" role="listbox" aria-label="Direcciones sugeridas" hidden></ul></div><p id="address-status" class="address-status" role="status" aria-live="polite" hidden></p>';
+  else if (field.options) control = '<select' + common + '><option value="">Elige tu región</option>' + field.options.map(option => '<option' + (option === saved ? ' selected' : '') + '>' + option + '</option>').join('') + '</select>';
   else if (field.textarea) control = '<textarea' + common + ' maxlength="' + field.max + '" rows="2"' + (field.placeholder ? ' placeholder="' + field.placeholder + '"' : '') + '>' + value + '</textarea>';
   else control = '<input' + common + ' type="' + (field.type || 'text') + '" maxlength="' + field.max + '" value="' + value + '"' + (field.placeholder ? ' placeholder="' + field.placeholder + '"' : '') + '>';
   return '<div class="field field-' + name + '"><label for="co-' + name + '">' + field.label + (field.optional ? ' <small>(opcional)</small>' : '') + '</label>' + control +
@@ -289,7 +292,7 @@ function showFieldError(form, name, message) {
 function validateCheckout(form) {
   let first = null;
   Object.keys(fieldError).forEach(name => {
-    const message = fieldError[name](form.elements[name].value.trim());
+    const message = fieldError[name](form.elements[name].value.trim(), form);
     showFieldError(form, name, message);
     if (message && !first) first = form.elements[name];
   });
@@ -298,7 +301,7 @@ function validateCheckout(form) {
 byId('checkout-body').addEventListener('change', event => {
   const form = event.target.form;
   if (!form || form.id !== 'flow-checkout-form' || !fieldError[event.target.name]) return;
-  if (event.target.getAttribute('aria-invalid') !== null || event.target.value) showFieldError(form, event.target.name, fieldError[event.target.name](event.target.value.trim()));
+  if (event.target.getAttribute('aria-invalid') !== null || event.target.value) showFieldError(form, event.target.name, fieldError[event.target.name](event.target.value.trim(), form));
 });
 function checkout() {
   if (!Object.values(cart).some(quantity => quantity > 0)) return;
@@ -344,7 +347,7 @@ document.addEventListener('click', event => {
   if (button.id === 'back-cart') openDialog('cart');
 });
 byId('dismiss').addEventListener('click', () => { byId('dock').hidden = true; });
-byId('checkout-body').addEventListener('submit', event => {
+byId('checkout-body').addEventListener('submit', async event => {
   if (event.target.id !== 'flow-checkout-form') return;
   event.preventDefault();
   if (!Object.values(cart).some(quantity => quantity > 0)) return;
@@ -356,6 +359,16 @@ byId('checkout-body').addEventListener('submit', event => {
     error.textContent = 'Revisa los campos marcados para continuar.';
     error.hidden = false;
     invalid.focus();
+    return;
+  }
+  if (submitButton.disabled) return;
+  submitButton.disabled = true;
+  const addressOk = await verifyAddress(form);
+  submitButton.disabled = false;
+  if (!addressOk) {
+    error.textContent = 'Revisa tu dirección para continuar.';
+    error.hidden = false;
+    form.elements.address.focus();
     return;
   }
   const value = name => form.elements[name].value.trim();

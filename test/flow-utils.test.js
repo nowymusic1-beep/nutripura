@@ -91,6 +91,10 @@ const validCustomer = {
   unit: "Depto 52", notes: "",
 };
 
+test("matches communes without accents to their official name", () => {
+  assert.equal(validateCustomer({ ...validCustomer, comuna: "nunoa" }).comuna, "Ñuñoa");
+});
+
 test("validates and normalizes shipping details", () => {
   assert.deepEqual(validateCustomer(validCustomer), {
     firstName: "María José", lastName: "Pérez", phone: "+56912345678",
@@ -106,6 +110,7 @@ test("reports which shipping field is missing", () => {
     ["phone", { phone: "22123456" }],
     ["region", { region: "Santiago" }],
     ["comuna", { comuna: "" }],
+    ["comuna", { comuna: "Viña del Mar" }],
     ["address", { address: "Sin número" }],
   ]) {
     assert.throws(() => validateCustomer({ ...validCustomer, ...patch }), (error) => error.field === field);
