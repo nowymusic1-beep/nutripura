@@ -41,7 +41,7 @@ app.all("/api/address/verify", addressVerify);
 
 app.use(express.static(staticDir));
 
-app.get("/advertorial/:product",(req,res)=>{if(!["berberina","magnesio"].includes(req.params.product))return res.sendStatus(404);res.sendFile(path.join(staticDir,"advertorial-"+req.params.product+".html"));});
+app.get("/advertorial/:product",(req,res)=>{if(!["berberina","magnesio","berberina-ingredientes","berberina-rutina","magnesio-descanso","magnesio-cansancio"].includes(req.params.product))return res.sendStatus(404);res.sendFile(path.join(staticDir,"advertorial-"+req.params.product+".html"));});
 app.get("/admin", (_req,res)=>res.sendFile(path.join(staticDir,"admin.html")));
 app.get("/prueba", (_req, res) => {
   res.sendFile(path.join(staticDir, "index.html"));

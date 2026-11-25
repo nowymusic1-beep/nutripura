@@ -17,6 +17,22 @@
     {
       "source": "/advertorial/magnesio",
       "destination": "/advertorial-magnesio.html"
+    },
+    {
+      "source": "/advertorial/berberina-ingredientes",
+      "destination": "/advertorial-berberina-ingredientes.html"
+    },
+    {
+      "source": "/advertorial/berberina-rutina",
+      "destination": "/advertorial-berberina-rutina.html"
+    },
+    {
+      "source": "/advertorial/magnesio-descanso",
+      "destination": "/advertorial-magnesio-descanso.html"
+    },
+    {
+      "source": "/advertorial/magnesio-cansancio",
+      "destination": "/advertorial-magnesio-cansancio.html"
     }
   ]
 }
