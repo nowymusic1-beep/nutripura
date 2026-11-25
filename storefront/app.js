@@ -246,7 +246,7 @@ const REGIONS = CHILE_REGIONS.map(region => region.name);
 const CHECKOUT_FIELDS = {
   firstName: { label:'Nombre', autocomplete:'given-name', max:60 },
   lastName: { label:'Apellido', autocomplete:'family-name', max:60 },
-  email: { label:'Correo electrónico', type:'email', autocomplete:'email', max:254, hint:'Aquí te llega el comprobante de Flow.' },
+  email: { label:'Correo electrónico', type:'email', autocomplete:'email', max:254, hint:'Aquí te llega el comprobante de pago.' },
   phone: { label:'Celular', type:'tel', autocomplete:'tel-national', max:20, placeholder:'9 1234 5678', hint:'Para coordinar la entrega.' },
   region: { label:'Región', options:REGIONS, autocomplete:'address-level1' },
   comuna: { label:'Comuna', communes:true },
@@ -278,11 +278,13 @@ function fieldMarkup(name) {
   return '<div class="field field-' + name + '"><label for="co-' + name + '">' + field.label + (field.optional ? ' <small>(opcional)</small>' : '') + '</label>' + control +
     '<p class="field-msg" id="co-' + name + '-msg">' + (field.hint || '') + '</p></div>';
 }
+let mpEnabled = false;
+fetch('/api/mercadopago/create').then(r=>r.json()).then(r=>{mpEnabled=r.enabled===true;const option=byId('mp-option');if(option)option.hidden=!mpEnabled;}).catch(()=>{});
 function checkoutForm() {
   return '<form class="checkout-form" id="flow-checkout-form" novalidate>' +
     '<fieldset><legend>Tus datos</legend><div class="field-row">' + fieldMarkup('firstName') + fieldMarkup('lastName') + '</div>' + fieldMarkup('email') + fieldMarkup('phone') + '</fieldset>' +
     '<fieldset><legend>¿Dónde te lo enviamos?</legend>' + fieldMarkup('region') + fieldMarkup('comuna') + fieldMarkup('address') + fieldMarkup('unit') + fieldMarkup('notes') + '</fieldset>' +
-    '<p class="checkout-note">Flow procesará tu pago de forma segura con tarjeta de crédito, débito o transferencia. Los libros digitales estarán disponibles al confirmar el pago.</p>' +
+    '<fieldset><legend>Medio de pago</legend><label><input type="radio" name="provider" value="flow" checked> Flow</label><label id="mp-option" '+(mpEnabled?'':'hidden')+'><input type="radio" name="provider" value="mercadopago"> Mercado Pago</label></fieldset><p class="checkout-note">Los libros digitales estarán disponibles al confirmar el pago.</p>' +
     '<p class="checkout-error" id="checkout-error" role="alert" hidden></p><button class="pill wide" type="submit">PAGAR CON FLOW</button></form>';
 }
 function showFieldError(form, name, message) {
@@ -303,6 +305,7 @@ function validateCheckout(form) {
   return first;
 }
 byId('checkout-body').addEventListener('change', event => {
+  if(event.target.name==='provider'){event.target.form.querySelector('button[type=submit]').textContent=event.target.value==='mercadopago'?'PAGAR CON MERCADO PAGO':'PAGAR CON FLOW';return;}
   const form = event.target.form;
   if (!form || form.id !== 'flow-checkout-form' || !fieldError[event.target.name]) return;
   if (event.target.getAttribute('aria-invalid') !== null || event.target.value) showFieldError(form, event.target.name, fieldError[event.target.name](event.target.value.trim(), form));
@@ -389,9 +392,11 @@ byId('checkout-body').addEventListener('submit', async event => {
     currency: 'CLP'
   }, eventId);
   submitButton.disabled = true;
-  submitButton.textContent = 'CONECTANDO CON FLOW…';
+  const provider = mpEnabled && form.elements.provider.value === 'mercadopago' ? 'mercadopago' : 'flow';
+  const providerName = provider === 'flow' ? 'FLOW' : 'MERCADO PAGO';
+  submitButton.textContent = 'CONECTANDO CON '+providerName+'…';
   error.hidden = true;
-  fetch('/api/flow/create', {
+  fetch('/api/'+provider+'/create', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -410,13 +415,13 @@ byId('checkout-body').addEventListener('submit', async event => {
       throw new Error(result.error || 'No pudimos iniciar el pago.');
     }
     const checkoutUrl = new URL(result.checkoutUrl);
-    if (checkoutUrl.origin !== 'https://www.flow.cl') throw new Error('Flow devolvió una dirección de pago no válida.');
+    if (!(provider==='flow' ? checkoutUrl.origin==='https://www.flow.cl' : ['https://www.mercadopago.cl','https://www.mercadopago.com','https://mercadopago.cl','https://mercadopago.com'].includes(checkoutUrl.origin))) throw new Error('La pasarela devolvió una dirección de pago no válida.');
     window.location.assign(checkoutUrl);
   }).catch(reason => {
     error.textContent = reason.message || 'No pudimos iniciar el pago. Inténtalo nuevamente.';
     error.hidden = false;
     submitButton.disabled = false;
-    submitButton.textContent = 'PAGAR CON FLOW';
+    submitButton.textContent = 'PAGAR CON '+providerName;
   });
 });
 if (new URLSearchParams(window.location.search).has('prueba')) {
@@ -432,12 +437,14 @@ if (new URLSearchParams(window.location.search).has('prueba')) {
 
 const escapeName = text => String(text).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 let flowReturnToken = '';
+let returnProvider = 'flow';
 async function checkFlowReturn() {
   const params = new URLSearchParams(window.location.search);
-  flowReturnToken = params.get('token') || '';
+  returnProvider = params.get('mp') === 'return' ? 'mercadopago' : 'flow';
+  flowReturnToken = returnProvider==='mercadopago' ? (params.get('mp_token') || '') : (params.get('token') || '');
   if (!flowReturnToken && params.get('flow') !== 'return') return;
   openDialog('checkout');
-  byId('checkout-body').innerHTML = '<p class="checkout-note" role="status">Estamos verificando tu pago con Flow…</p>';
+  byId('checkout-body').innerHTML = '<p class="checkout-note" role="status">Estamos verificando tu pago…</p>';
   if (flowReturnToken) {
     history.replaceState(null, '', window.location.pathname + window.location.hash);
     await refreshFlowStatus();
@@ -447,9 +454,9 @@ async function checkFlowReturn() {
 }
 async function refreshFlowStatus() {
   const body = byId('checkout-body');
-  body.innerHTML = '<p class="checkout-note" role="status">Estamos verificando tu pago con Flow…</p>';
+  body.innerHTML = '<p class="checkout-note" role="status">Estamos verificando tu pago…</p>';
   try {
-    const response = await fetch('/api/flow/status', {
+    const response = await fetch('/api/'+returnProvider+'/status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: flowReturnToken })
@@ -467,9 +474,9 @@ async function refreshFlowStatus() {
       Object.keys(cart).forEach(key => { cart[key] = 0; });
       save('np-nutre-pure-cart', cart);
       renderCart();
-      body.innerHTML = '<div class="checkout-success"><span class="success-mark" aria-hidden="true">✓</span><p class="eyebrow">PAGO CONFIRMADO POR FLOW</p><h3>' + (result.firstName ? '¡Gracias, ' + escapeName(result.firstName) + '!' : 'Gracias por elegir Nutrición Pura.') + '</h3><p>Tu pago fue confirmado. Aquí puedes descargar tus tres libros de regalo.</p></div><div class="gift-delivery"><div class="gift-miniatures">' + giftBooks.map((book,i) => '<img src="img/libro-' + (i+1) + '.webp" alt="' + book.title + '">').join('') + '</div><h3>Tus tres libros de regalo</h3><details class="gift-fallback" open><summary>Descarga la colección en PDF</summary>' + giftBooks.map(book => '<a href="regalos/' + book.file + '.pdf" download>' + book.title + ' ↓</a>').join('') + '</details></div><a class="pill wide" href="#catalogo">VOLVER AL CATÁLOGO</a>';
+      body.innerHTML = '<div class="checkout-success"><span class="success-mark" aria-hidden="true">✓</span><p class="eyebrow">PAGO CONFIRMADO</p><h3>' + (result.firstName ? '¡Gracias, ' + escapeName(result.firstName) + '!' : 'Gracias por elegir Nutrición Pura.') + '</h3><p>Tu pago fue confirmado. Aquí puedes descargar tus tres libros de regalo.</p></div><div class="gift-delivery"><div class="gift-miniatures">' + giftBooks.map((book,i) => '<img src="img/libro-' + (i+1) + '.webp" alt="' + book.title + '">').join('') + '</div><h3>Tus tres libros de regalo</h3><details class="gift-fallback" open><summary>Descarga la colección en PDF</summary>' + giftBooks.map(book => '<a href="regalos/' + book.file + '.pdf" download>' + book.title + ' ↓</a>').join('') + '</details></div><a class="pill wide" href="#catalogo">VOLVER AL CATÁLOGO</a>';
     } else if (result.status === 'pending') {
-      body.innerHTML = '<div class="checkout-note" role="status">Flow todavía no confirma el pago. Tus libros estarán disponibles cuando se confirme.</div><button class="pill wide" id="verify-flow-payment">VERIFICAR NUEVAMENTE</button><a class="pill wide" href="#catalogo">VOLVER AL CATÁLOGO</a>';
+      body.innerHTML = '<div class="checkout-note" role="status">La pasarela todavía no confirma el pago. Tus libros estarán disponibles cuando se confirme.</div><button class="pill wide" id="verify-flow-payment">VERIFICAR NUEVAMENTE</button><a class="pill wide" href="#catalogo">VOLVER AL CATÁLOGO</a>';
     } else {
       body.innerHTML = '<div class="checkout-note" role="status">El pago no fue confirmado. No se registró una compra pagada.</div><a class="pill wide" href="#catalogo">VOLVER AL CATÁLOGO</a>';
     }
