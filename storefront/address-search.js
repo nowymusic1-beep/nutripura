@@ -45,6 +45,7 @@ function resetAddressState() {
   if (addressLookup.state.status === 'idle') return;
   addressLookup.state = { status: 'idle', input: '', formattedAddress: '' };
   setAddressStatus('', '');
+  const f=checkoutFormEl();if(f)refreshCheckoutMap(f);
 }
 function hideSuggestions() {
   const list = byId('address-suggestions');
@@ -93,7 +94,7 @@ function applyPlace(form, regionText, communeText) {
 function applyVerified(form, data) {
   if (data.streetLine) form.elements.address.value = data.streetLine;
   const match = applyPlace(form, data.region, data.commune);
-  addressLookup.state = { status: 'verified', input: form.elements.address.value.trim(), formattedAddress: data.formattedAddress || '' };
+  addressLookup.state = { status: 'verified', input: form.elements.address.value.trim(), formattedAddress: data.formattedAddress || '', lat: data.lat, lon: data.lon, commune: form.elements.comuna.value, region: form.elements.region.value };
   showFieldError(form, 'address', '');
   refreshCheckoutMap(form);
   if (match.commune && form.elements.comuna.value && normGeo(form.elements.comuna.value) !== normGeo(match.commune)) {

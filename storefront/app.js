@@ -282,8 +282,8 @@ let mpEnabled = false;
 fetch('/api/mercadopago/create').then(r=>r.json()).then(r=>{mpEnabled=r.enabled===true;const option=byId('mp-option');if(option)option.hidden=!mpEnabled;}).catch(()=>{});
 function checkoutForm() {
   return '<ol class="np-checkout-steps" aria-label="Pasos de compra"><li>1 · Carrito</li><li id="np-step-data" aria-current="step">2 · Despacho</li><li id="np-step-pay">3 · Pago</li></ol><form class="checkout-form" id="flow-checkout-form" novalidate>' +
-    '<div id="np-data-stage"><fieldset><legend>Datos de contacto</legend>' + fieldMarkup('email') + '<div class="field-row">' + fieldMarkup('firstName') + fieldMarkup('lastName') + '</div>' + fieldMarkup('phone') + '</fieldset>' +
-    '<fieldset><legend>Datos de despacho</legend>' + fieldMarkup('address') + '<div class="field-row">' + fieldMarkup('region') + fieldMarkup('comuna') + '</div>' + fieldMarkup('unit') + fieldMarkup('notes') + '<a id="np-map-link" target="_blank" rel="noopener noreferrer" hidden>Ver dirección en el mapa ↗</a></fieldset>' +
+    '<div id="np-data-stage"><fieldset><legend>Datos de contacto</legend>' + fieldMarkup('email') + '<div class="np-account"><button type="button" class="back-cart" id="np-recover">Recuperar mis datos con mi correo</button><div id="np-otp-box" hidden><label for="np-otp">Código de verificación</label><input id="np-otp" inputmode="numeric" autocomplete="one-time-code" maxlength="8"><button type="button" id="np-otp-submit" class="back-cart">Verificar y recuperar</button></div><p id="np-profile-status" role="status"></p></div><div class="field-row">' + fieldMarkup('firstName') + fieldMarkup('lastName') + '</div>' + fieldMarkup('phone') + '</fieldset>' +
+    '<fieldset><legend>Datos de despacho</legend>' + fieldMarkup('address') + '<div class="field-row">' + fieldMarkup('region') + fieldMarkup('comuna') + '</div>' + fieldMarkup('unit') + fieldMarkup('notes') + '<figure id="np-map-preview" hidden><img id="np-map-img" alt="Ubicación aproximada de la dirección seleccionada" loading="lazy"><figcaption>Ubicación aproximada. Confirma la calle y el número.</figcaption></figure><a id="np-map-link" target="_blank" rel="noopener noreferrer" hidden>Ver dirección en el mapa ↗</a></fieldset>' +
     '<label class="np-remember"><input type="checkbox" name="remember"> Recordar mis datos en este dispositivo</label><button class="pill wide" type="button" id="np-continue">CONTINUAR AL PAGO →</button></div>' +
     '<div id="np-pay-stage" hidden><div class="np-pay-review" id="np-pay-review"></div><button class="back-cart" type="button" id="np-edit">← Editar datos de despacho</button><fieldset><legend>Medio de pago</legend><label><input type="radio" name="provider" value="flow" checked> Flow</label><label id="mp-option" '+(mpEnabled?'':'hidden')+'><input type="radio" name="provider" value="mercadopago"> Mercado Pago</label></fieldset><p class="checkout-note">Los libros digitales estarán disponibles al confirmar el pago.</p><button class="pill wide" type="submit">PAGAR CON FLOW</button></div><p class="checkout-error" id="checkout-error" role="alert" hidden></p></form>';
 }
@@ -298,12 +298,34 @@ function refreshCheckoutMap(form) {
   const address=form.elements.address.value.trim(), commune=form.elements.comuna.value, region=form.elements.region.value;
   const link=byId('np-map-link'); if(!link)return;
   link.hidden=!(address&&commune&&region);
+  const preview=byId('np-map-preview'),img=byId('np-map-img');
+  const point=typeof addressLookup!=='undefined'&&addressLookup.state;
+  const valid=point&&point.status==='verified'&&point.input===address&&point.commune===commune&&point.region===region&&Number.isFinite(point.lat)&&Number.isFinite(point.lon);
+  if(preview&&img){preview.hidden=!valid;if(valid){const src='/api/address/map?lat='+encodeURIComponent(point.lat)+'&lon='+encodeURIComponent(point.lon);if(img.getAttribute('src')!==src)img.src=src;}else img.removeAttribute('src');}
   if(!link.hidden)link.href='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent([address,commune,region,'Chile'].join(', '));
 }
 byId('checkout-body').addEventListener('change',event=>{const form=event.target.form;if(form?.id==='flow-checkout-form')refreshCheckoutMap(form);});
 byId('checkout-body').addEventListener('click',async event=>{
   const button=event.target.closest('button');if(!button)return;
   const form=button.form;if(form?.id!=='flow-checkout-form')return;
+  if(button.id==='np-recover'||button.id==='np-otp-submit'){
+    const status=byId('np-profile-status'),email=form.elements.email.value.trim().toLowerCase();
+    if(fieldError.email(email)){showFieldError(form,'email',fieldError.email(email));form.elements.email.focus();return;}
+    button.disabled=true;
+    try{
+      const verify=button.id==='np-otp-submit';
+      const response=await fetch('/api/customer-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:verify?'verify':'send',email,code:verify?byId('np-otp').value.trim():undefined})});
+      const result=await response.json();
+      if(!response.ok)throw Error(result.error||'No pudimos recuperar los datos.');
+      if(!verify){byId('np-otp-box').hidden=false;status.textContent='Revisa tu correo e ingresa el código.';byId('np-otp').focus();return;}
+      byId('np-otp-box').hidden=true;byId('np-otp').value='';
+      if(form.elements.email.value.trim().toLowerCase()!==email){status.textContent='El correo cambió. Vuelve a verificar.';return;}
+      if(!result.customer){status.textContent='No encontramos datos de una compra pagada. Completa el formulario.';return;}
+      for(const name of ['firstName','lastName','phone','region','address','unit','notes'])if(typeof result.customer[name]==='string')form.elements[name].value=result.customer[name];
+      syncCommunes(form,result.customer.comuna||'');resetAddressState();refreshCheckoutMap(form);
+      status.textContent='Datos recuperados. Confirma que la dirección siga siendo correcta.';
+    }catch(e){status.textContent=e.message;}finally{button.disabled=false;}return;
+  }
   if(button.id==='np-edit'){setCheckoutStage(false);byId('checkout-error').hidden=true;form.elements.email.focus();return;}
   if(button.id!=='np-continue'||button.disabled)return;
   const error=byId('checkout-error'),invalid=validateCheckout(form);
