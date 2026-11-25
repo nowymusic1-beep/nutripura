@@ -263,13 +263,21 @@ const fieldError = {
   comuna: (value, form) => CHILE_REGIONS.find(region => region.name === form.elements.region.value)?.communes.includes(value) ? '' : 'Elige tu comuna.',
   address: value => value.trim().length >= 4 && /\d/.test(value) ? '' : 'Ingresa la calle y el número.'
 };
+const rememberedKey='np-checkout-customer';
+function rememberedCustomer(){
+  const saved=read(rememberedKey,null);
+  if(saved&&saved.consent===true&&Number.isFinite(saved.expiresAt)&&saved.expiresAt>Date.now())return saved;
+  if(saved)forgetCustomer();
+  return null;
+}
+function forgetCustomer(){try{localStorage.removeItem(rememberedKey);}catch{}}
 function fieldMarkup(name) {
   const field = CHECKOUT_FIELDS[name];
-  const saved = read('np-checkout-customer', {})?.[name] || '';
+  const saved = name==='email' ? (rememberedCustomer()?.email || '') : '';
   const value = String(saved).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const common = ' id="co-' + name + '" name="' + name + '"' + (field.autocomplete ? ' autocomplete="' + field.autocomplete + '"' : '') + (field.optional ? '' : ' required') + ' aria-describedby="co-' + name + '-msg"';
   let control;
-  if (field.communes) control = '<select' + common + (read('np-checkout-customer', {})?.region ? '' : ' disabled') + '>' + communeOptions(read('np-checkout-customer', {})?.region, saved) + '</select>';
+  if (field.communes) control = '<select' + common + ' disabled>' + communeOptions('', '') + '</select>';
   else if (field.lookup) control = '<div class="address-lookup"><input' + common + ' type="text" autocomplete="off" maxlength="' + field.max + '" value="' + value + '" placeholder="' + field.placeholder + '" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="address-suggestions">' +
     '<ul id="address-suggestions" class="address-suggestions" role="listbox" aria-label="Direcciones sugeridas" hidden></ul></div><p id="address-status" class="address-status" role="status" aria-live="polite" hidden></p>';
   else if (field.options) control = '<select' + common + '><option value="">Elige tu región</option>' + field.options.map(option => '<option' + (option === saved ? ' selected' : '') + '>' + option + '</option>').join('') + '</select>';
@@ -282,9 +290,9 @@ let mpEnabled = false;
 fetch('/api/mercadopago/create').then(r=>r.json()).then(r=>{mpEnabled=r.enabled===true;const option=byId('mp-option');if(option)option.hidden=!mpEnabled;}).catch(()=>{});
 function checkoutForm() {
   return '<ol class="np-checkout-steps" aria-label="Pasos de compra"><li>1 · Carrito</li><li id="np-step-data" aria-current="step">2 · Despacho</li><li id="np-step-pay">3 · Pago</li></ol><form class="checkout-form" id="flow-checkout-form" novalidate>' +
-    '<div id="np-data-stage"><fieldset><legend>Datos de contacto</legend>' + fieldMarkup('email') + '<div class="field-row">' + fieldMarkup('firstName') + fieldMarkup('lastName') + '</div>' + fieldMarkup('phone') + '</fieldset>' +
+    '<div id="np-data-stage"><fieldset><legend>Datos de contacto</legend>' + fieldMarkup('email') + (rememberedCustomer()?'<div class="np-account"><button type="button" class="back-cart" id="np-use-saved">Usar datos guardados en este dispositivo</button><button type="button" class="back-cart" id="np-forget-saved">Olvidar datos guardados</button></div>':'') + '<div class="field-row">' + fieldMarkup('firstName') + fieldMarkup('lastName') + '</div>' + fieldMarkup('phone') + '</fieldset>' +
     '<fieldset><legend>Datos de despacho</legend>' + fieldMarkup('address') + '<div class="field-row">' + fieldMarkup('region') + fieldMarkup('comuna') + '</div>' + fieldMarkup('unit') + fieldMarkup('notes') + '<figure id="np-map-preview" hidden><img id="np-map-img" alt="Ubicación aproximada de la dirección seleccionada" loading="lazy"><figcaption>Ubicación aproximada. Confirma la calle y el número.</figcaption></figure><a id="np-map-link" target="_blank" rel="noopener noreferrer" hidden>Ver dirección en el mapa ↗</a></fieldset>' +
-    '<label class="np-remember"><input type="checkbox" name="remember"> Recordar mis datos en este dispositivo</label><button class="pill wide" type="button" id="np-continue">CONTINUAR AL PAGO →</button></div>' +
+    '<label class="np-remember"><input type="checkbox" name="remember"> Recordar mis datos en este dispositivo durante 30 días (opcional)</label><button class="pill wide" type="button" id="np-continue">CONTINUAR AL PAGO →</button></div>' +
     '<div id="np-pay-stage" hidden><div class="np-pay-review" id="np-pay-review"></div><button class="back-cart" type="button" id="np-edit">← Editar datos de despacho</button><fieldset><legend>Medio de pago</legend><label><input type="radio" name="provider" value="flow" checked> Flow</label><label id="mp-option" '+(mpEnabled?'':'hidden')+'><input type="radio" name="provider" value="mercadopago"> Mercado Pago</label></fieldset><p class="checkout-note">Los libros digitales estarán disponibles al confirmar el pago.</p><button class="pill wide" type="submit">PAGAR CON FLOW</button></div><p class="checkout-error" id="checkout-error" role="alert" hidden></p></form>';
 }
 function setCheckoutStage(payment) {
@@ -308,6 +316,13 @@ byId('checkout-body').addEventListener('change',event=>{const form=event.target.
 byId('checkout-body').addEventListener('click',async event=>{
   const button=event.target.closest('button');if(!button)return;
   const form=button.form;if(form?.id!=='flow-checkout-form')return;
+  if(button.id==='np-use-saved'){
+    const saved=rememberedCustomer();
+    if(!saved||saved.email.toLowerCase()!==form.elements.email.value.trim().toLowerCase()){byId('checkout-error').textContent='Ingresa el correo asociado a los datos guardados en este dispositivo.';byId('checkout-error').hidden=false;form.elements.email.focus();return;}
+    for(const name of ['firstName','lastName','phone','region','address','unit','notes'])if(typeof saved[name]==='string')form.elements[name].value=saved[name];
+    syncCommunes(form,saved.comuna||'');form.elements.remember.checked=true;resetAddressState();refreshCheckoutMap(form);byId('checkout-error').hidden=true;return;
+  }
+  if(button.id==='np-forget-saved'){forgetCustomer();form.elements.remember.checked=false;for(const name of ['firstName','lastName','phone','region','address','unit','notes'])form.elements[name].value='';syncCommunes(form,'');form.elements.email.value='';resetAddressState();refreshCheckoutMap(form);button.parentElement.remove();form.elements.email.focus();return;}
   if(button.id==='np-edit'){setCheckoutStage(false);byId('checkout-error').hidden=true;form.elements.email.focus();return;}
   if(button.id!=='np-continue'||button.disabled)return;
   const error=byId('checkout-error'),invalid=validateCheckout(form);
@@ -419,8 +434,8 @@ byId('checkout-body').addEventListener('submit', async event => {
   }
   const value = name => form.elements[name].value.trim();
   const customer = Object.fromEntries(['firstName','lastName','phone','region','comuna','address','unit','notes'].map(name => [name, value(name)]));
-  if(form.elements.remember.checked) save('np-checkout-customer', { ...customer, email: value('email') });
-  else { try { localStorage.removeItem('np-checkout-customer'); } catch {} }
+  if(form.elements.remember.checked && !isTestOrder()) save(rememberedKey, { ...customer, notes:'', email: value('email').toLowerCase(), consent:true, expiresAt:Date.now()+30*86400000 });
+  else if(!form.elements.remember.checked) forgetCustomer();
   const eventId = newMetaEventId();
   const orderItems = products.filter(item => cart[item.id] > 0).map(item => ({ id: item.id, quantity: cart[item.id] }));
   const orderTotal = totals().total;
