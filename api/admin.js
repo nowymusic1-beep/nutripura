@@ -40,7 +40,7 @@ export async function admin(req,res){
   if(!body||!Object.hasOwn(DEFAULT_PRICES,body.id)||!validPromotions(body.promotions))return res.status(400).json({error:"Promoción inválida"});
   const current=await readPrices(db);if(!current.promoEditable)return res.status(503).json({error:"Falta activar las promociones en Supabase"});
   const entries=Object.entries(body.promotions).sort((a,b)=>Number(a[0])-Number(b[0]));
-  if(entries.some(([q,n],i)=>n>current.prices[body.id]*Number(q)-Math.round(current.prices[body.id]*Number(q)*.1)||(i>0&&n<entries[i-1][1])))return res.status(400).json({error:"El total de cada pack debe aumentar con la cantidad y no superar el precio web habitual."});
+  if(entries.some(([q,n],i)=>n>current.prices[body.id]*Number(q)-Math.round(current.prices[body.id]*Number(q)*.1)||(i>0&&(n<=entries[i-1][1]||n*Number(entries[i-1][0])>=entries[i-1][1]*Number(q)))))return res.status(400).json({error:"El total debe aumentar, el precio por unidad debe bajar y ningún pack puede superar el precio web habitual."});
   const {error}=await db.from("storefront_prices").update({promotions:body.promotions,updated_by:session.user,updated_at:new Date().toISOString()}).eq("id",body.id);
   if(error)throw new Error("No se pudo guardar promoción");return res.json(await readPrices(db));
  }
