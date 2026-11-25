@@ -255,9 +255,9 @@ const CHECKOUT_FIELDS = {
   notes: { label:'Indicaciones para el despacho', max:200, optional:true, textarea:true, placeholder:'Ej.: dejar en conserjería' }
 };
 const fieldError = {
+  email: value => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value) ? '' : 'Ingresa un correo válido.',
   firstName: value => /^\p{L}[\p{L}\s'.-]*$/u.test(value) ? '' : 'Ingresa tu nombre.',
   lastName: value => /^\p{L}[\p{L}\s'.-]*$/u.test(value) ? '' : 'Ingresa tu apellido.',
-  email: value => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value) ? '' : 'Ingresa un correo válido, por ejemplo nombre@gmail.com.',
   phone: value => /^9\d{8}$/.test(value.replace(/\D/g, '').replace(/^56/, '')) ? '' : 'Ingresa un celular chileno de 9 dígitos, por ejemplo 9 1234 5678.',
   region: value => REGIONS.includes(value) ? '' : 'Elige tu región.',
   comuna: (value, form) => CHILE_REGIONS.find(region => region.name === form.elements.region.value)?.communes.includes(value) ? '' : 'Elige tu comuna.',
@@ -281,12 +281,43 @@ function fieldMarkup(name) {
 let mpEnabled = false;
 fetch('/api/mercadopago/create').then(r=>r.json()).then(r=>{mpEnabled=r.enabled===true;const option=byId('mp-option');if(option)option.hidden=!mpEnabled;}).catch(()=>{});
 function checkoutForm() {
-  return '<form class="checkout-form" id="flow-checkout-form" novalidate>' +
-    '<fieldset><legend>Tus datos</legend><div class="field-row">' + fieldMarkup('firstName') + fieldMarkup('lastName') + '</div>' + fieldMarkup('email') + fieldMarkup('phone') + '</fieldset>' +
-    '<fieldset><legend>¿Dónde te lo enviamos?</legend>' + fieldMarkup('region') + fieldMarkup('comuna') + fieldMarkup('address') + fieldMarkup('unit') + fieldMarkup('notes') + '</fieldset>' +
-    '<fieldset><legend>Medio de pago</legend><label><input type="radio" name="provider" value="flow" checked> Flow</label><label id="mp-option" '+(mpEnabled?'':'hidden')+'><input type="radio" name="provider" value="mercadopago"> Mercado Pago</label></fieldset><p class="checkout-note">Los libros digitales estarán disponibles al confirmar el pago.</p>' +
-    '<p class="checkout-error" id="checkout-error" role="alert" hidden></p><button class="pill wide" type="submit">PAGAR CON FLOW</button></form>';
+  return '<ol class="np-checkout-steps" aria-label="Pasos de compra"><li>1 · Carrito</li><li id="np-step-data" aria-current="step">2 · Despacho</li><li id="np-step-pay">3 · Pago</li></ol><form class="checkout-form" id="flow-checkout-form" novalidate>' +
+    '<div id="np-data-stage"><fieldset><legend>Datos de contacto</legend>' + fieldMarkup('email') + '<div class="field-row">' + fieldMarkup('firstName') + fieldMarkup('lastName') + '</div>' + fieldMarkup('phone') + '</fieldset>' +
+    '<fieldset><legend>Datos de despacho</legend>' + fieldMarkup('address') + '<div class="field-row">' + fieldMarkup('region') + fieldMarkup('comuna') + '</div>' + fieldMarkup('unit') + fieldMarkup('notes') + '<a id="np-map-link" target="_blank" rel="noopener noreferrer" hidden>Ver dirección en el mapa ↗</a></fieldset>' +
+    '<label class="np-remember"><input type="checkbox" name="remember"> Recordar mis datos en este dispositivo</label><button class="pill wide" type="button" id="np-continue">CONTINUAR AL PAGO →</button></div>' +
+    '<div id="np-pay-stage" hidden><div class="np-pay-review" id="np-pay-review"></div><button class="back-cart" type="button" id="np-edit">← Editar datos de despacho</button><fieldset><legend>Medio de pago</legend><label><input type="radio" name="provider" value="flow" checked> Flow</label><label id="mp-option" '+(mpEnabled?'':'hidden')+'><input type="radio" name="provider" value="mercadopago"> Mercado Pago</label></fieldset><p class="checkout-note">Los libros digitales estarán disponibles al confirmar el pago.</p><button class="pill wide" type="submit">PAGAR CON FLOW</button></div><p class="checkout-error" id="checkout-error" role="alert" hidden></p></form>';
 }
+function setCheckoutStage(payment) {
+  byId('np-data-stage').hidden=payment;
+  byId('np-pay-stage').hidden=!payment;
+  byId('np-step-data').removeAttribute('aria-current');
+  byId('np-step-pay').removeAttribute('aria-current');
+  byId(payment?'np-step-pay':'np-step-data').setAttribute('aria-current','step');
+}
+function refreshCheckoutMap(form) {
+  const address=form.elements.address.value.trim(), commune=form.elements.comuna.value, region=form.elements.region.value;
+  const link=byId('np-map-link'); if(!link)return;
+  link.hidden=!(address&&commune&&region);
+  if(!link.hidden)link.href='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent([address,commune,region,'Chile'].join(', '));
+}
+byId('checkout-body').addEventListener('change',event=>{const form=event.target.form;if(form?.id==='flow-checkout-form')refreshCheckoutMap(form);});
+byId('checkout-body').addEventListener('click',async event=>{
+  const button=event.target.closest('button');if(!button)return;
+  const form=button.form;if(form?.id!=='flow-checkout-form')return;
+  if(button.id==='np-edit'){setCheckoutStage(false);byId('checkout-error').hidden=true;form.elements.email.focus();return;}
+  if(button.id!=='np-continue'||button.disabled)return;
+  const error=byId('checkout-error'),invalid=validateCheckout(form);
+  if(invalid){error.textContent='Revisa los campos marcados para continuar.';error.hidden=false;invalid.focus();return;}
+  button.disabled=true;
+  try{
+    const ok=await verifyAddress(form);
+    if(!ok){error.textContent='Revisa tu dirección para continuar.';error.hidden=false;form.elements.address.focus();return;}
+    const again=validateCheckout(form);if(again){error.textContent='Revisa los campos marcados.';error.hidden=false;again.focus();return;}
+    const review=byId('np-pay-review');review.replaceChildren();
+    for(const value of ['Entrega a '+form.elements.firstName.value+' '+form.elements.lastName.value,form.elements.email.value,[form.elements.address.value,form.elements.unit.value,form.elements.comuna.value,form.elements.region.value].filter(Boolean).join(', '),'Total a pagar: '+money(totals().total)]){const p=document.createElement('p');p.textContent=value;review.append(p);}
+    error.hidden=true;setCheckoutStage(true);form.elements.provider[0]?.focus();
+  }finally{button.disabled=false;}
+});
 function showFieldError(form, name, message) {
   const control = form.elements[name];
   const msg = byId('co-' + name + '-msg');
@@ -318,6 +349,7 @@ function checkout() {
     giftSummary() + '<p class="total"><span>Descuento web · 10 %</span><span>−' + money(amounts.savings) + '</span></p><p class="total"><span>Despacho</span><span>' + money(amounts.shipping) + '</span></p><p class="total checkout-grand"><strong>Total a pagar</strong><strong>' + money(amounts.total) + '</strong></p><p class="checkout-note">' + (isTestOrder() ? 'Pago de prueba: sin despacho.' : 'El total incluye el despacho de $3.990.') + '</p>' +
     '<button class="back-cart" id="back-cart">← Volver al carrito</button>' + checkoutForm();
   openDialog('checkout');
+  refreshCheckoutMap(byId('flow-checkout-form'));
 }
 byId('consent-accept').addEventListener('click', () => setMarketingConsent(true));
 byId('consent-reject').addEventListener('click', () => setMarketingConsent(false));
@@ -359,12 +391,14 @@ byId('checkout-body').addEventListener('submit', async event => {
   event.preventDefault();
   if (!Object.values(cart).some(quantity => quantity > 0)) return;
   const form = event.target;
+  if (!byId('np-data-stage').hidden) { byId('np-continue').click(); return; }
   const submitButton = form.querySelector('button[type="submit"]');
   const error = byId('checkout-error');
   const invalid = validateCheckout(form);
   if (invalid) {
     error.textContent = 'Revisa los campos marcados para continuar.';
     error.hidden = false;
+    setCheckoutStage(false);
     invalid.focus();
     return;
   }
@@ -375,12 +409,14 @@ byId('checkout-body').addEventListener('submit', async event => {
   if (!addressOk) {
     error.textContent = 'Revisa tu dirección para continuar.';
     error.hidden = false;
+    setCheckoutStage(false);
     form.elements.address.focus();
     return;
   }
   const value = name => form.elements[name].value.trim();
   const customer = Object.fromEntries(['firstName','lastName','phone','region','comuna','address','unit','notes'].map(name => [name, value(name)]));
-  save('np-checkout-customer', { ...customer, email: value('email') });
+  if(form.elements.remember.checked) save('np-checkout-customer', { ...customer, email: value('email') });
+  else { try { localStorage.removeItem('np-checkout-customer'); } catch {} }
   const eventId = newMetaEventId();
   const orderItems = products.filter(item => cart[item.id] > 0).map(item => ({ id: item.id, quantity: cart[item.id] }));
   const orderTotal = totals().total;
@@ -411,7 +447,7 @@ byId('checkout-body').addEventListener('submit', async event => {
   }).then(async response => {
     const result = await response.json();
     if (!response.ok) {
-      if (result.field) showFieldError(form, result.field, result.error);
+      if (result.field) { setCheckoutStage(false); showFieldError(form, result.field, result.error); }
       throw new Error(result.error || 'No pudimos iniciar el pago.');
     }
     const checkoutUrl = new URL(result.checkoutUrl);
@@ -424,7 +460,7 @@ byId('checkout-body').addEventListener('submit', async event => {
     submitButton.textContent = 'PAGAR CON '+providerName;
   });
 });
-if (new URLSearchParams(window.location.search).has('prueba')) {
+if (new URLSearchParams(window.location.search).has('prueba') || window.location.pathname === '/prueba') {
   Object.keys(cart).forEach(key => { cart[key] = key === 'prueba' ? 1 : 0; });
   save('np-nutre-pure-cart', cart);
   renderCart();

@@ -273,3 +273,5 @@ a.product-rating:hover{text-decoration:underline}
 .address-status.is-checking{background:#eef3fb;color:#24406e;border:1px solid #c5d5ef}
 .checkout-form select:disabled{background:#f3f4f2;color:#8a8d88}
 .address-status:not([hidden])+.field-msg:not(.is-error){display:none}
+
+.np-checkout-steps{display:flex;gap:8px;list-style:none;padding:12px 0;margin:0 0 12px;justify-content:space-between;font-size:12px;font-weight:600;color:inherit}.np-checkout-steps li{padding:8px;border-radius:8px;opacity:.65}.np-checkout-steps li[aria-current=step]{background:#28553c;color:white;opacity:1}.np-pay-review{border:1px solid #8baf9566;padding:12px;border-radius:12px;margin-bottom:12px}.np-pay-review p{margin:4px 0;overflow-wrap:anywhere}.np-remember{display:flex;align-items:center;gap:8px;font-size:13px;margin:12px 0}.np-remember input{width:auto}#np-map-link{display:inline-block;margin:8px 0;font-size:13px;text-decoration:underline}#np-map-link[hidden],#np-data-stage[hidden],#np-pay-stage[hidden]{display:none!important}

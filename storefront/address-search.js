@@ -95,6 +95,7 @@ function applyVerified(form, data) {
   const match = applyPlace(form, data.region, data.commune);
   addressLookup.state = { status: 'verified', input: form.elements.address.value.trim(), formattedAddress: data.formattedAddress || '' };
   showFieldError(form, 'address', '');
+  refreshCheckoutMap(form);
   if (match.commune && form.elements.comuna.value && normGeo(form.elements.comuna.value) !== normGeo(match.commune)) {
     setAddressStatus('warn', 'Encontramos la dirección en <strong>' + escapeText(match.commune) + '</strong>, pero elegiste otra comuna. Revisa cuál es la correcta.');
     return true;
