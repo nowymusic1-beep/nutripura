@@ -33,7 +33,8 @@ const products = [
   { id:'prueba', hidden:true, title:'Pago de prueba', price:400, tag:'PRUEBA', main:'magnesio', slides:['magnesio'], size:'', pitch:'', notes:[] }
 ];
 const isTestOrder = () => cart.prueba > 0;
-const webPrice = product => product.price - Math.round(product.price * .1);
+let activePromotions = {};
+const webPrice = product => activePromotions[product.id]?.[1] ?? (product.price - Math.round(product.price * .1));
 const CROSS_SELL = {
   berberina: { offer:'magnesio', title:'¿Sumas el magnesio a tu rutina?',
     text:'Magnesium Complex combina 3 formas de magnesio con vitamina B6, zinc y potasio. El magnesio contribuye a disminuir el cansancio y al funcionamiento normal de los músculos.' },
@@ -135,7 +136,7 @@ byId('products').innerHTML = products.filter(product => !product.hidden).map(pro
       <ul>${product.notes.map(note => '<li>' + note + '</li>').join('')}</ul>
       <div class="product-buy">
         <p class="product-price"><del>${money(product.price)}</del> <strong>${money(webPrice(product))}</strong></p>
-        <p class="product-gift">Incluye <b>3 libros digitales de regalo</b></p>
+        <div class="np-packs" data-packs="${product.id}" hidden></div><p class="product-gift">Incluye <b>3 libros digitales de regalo</b></p>
         <button class="pill buy-now" data-add="${product.id}">Comprar ahora</button>
         <p class="shipping-price">Despacho a todo Chile: ${money(SHIPPING_FEE)} por pedido</p>
       </div>
@@ -176,7 +177,8 @@ document.querySelectorAll('.product').forEach(product => {
 function totals() {
   const subtotal = products.reduce((amount, item) => amount + cart[item.id] * item.price, 0);
   if (isTestOrder()) return { subtotal, savings:0, shipping:0, total:subtotal };
-  const savings = Math.round(subtotal * .1);
+  const regular=products.filter(p=>!Number.isInteger(activePromotions[p.id]?.[cart[p.id]])).reduce((s,p)=>s+p.price*cart[p.id],0);
+  const savings=Math.round(regular*.1)+products.filter(p=>Number.isInteger(activePromotions[p.id]?.[cart[p.id]])).reduce((s,p)=>s+p.price*cart[p.id]-activePromotions[p.id][cart[p.id]],0);
   return { subtotal, savings, shipping:SHIPPING_FEE, total:subtotal - savings + SHIPPING_FEE };
 }
 function renderCart(focusControl) {
@@ -193,7 +195,7 @@ function renderCart(focusControl) {
       <div class="cart-line">${photoMarkup(item.main)}<div><strong>${item.title}</strong>
       <div class="qty"><button data-qty="${item.id}" data-delta="-1" aria-label="Quitar una unidad de ${item.title}">−</button><span>${cart[item.id]}</span><button data-qty="${item.id}" data-delta="1" ${cart[item.id] >= 99 ? "disabled" : ""} aria-label="Agregar una unidad de ${item.title}">+</button></div></div><span>${money(cart[item.id] * item.price)}</span></div>`).join('') +
       '<p class="total"><span>Subtotal</span><span>' + money(amounts.subtotal) + '</span></p>' +
-      '<p class="total"><span>Descuento web 10 %</span><span>−' + money(amounts.savings) + '</span></p>' +
+      '<p class="total"><span>Descuentos y promociones</span><span>−' + money(amounts.savings) + '</span></p>' +
       crossSell() + giftSummary() + '<p class="total"><span>Despacho</span><span>' + money(amounts.shipping) + '</span></p><p class="total"><strong>Total a pagar</strong><strong>' + money(amounts.total) + '</strong></p><button class="pill wide" id="continue-checkout">CONTINUAR CON EL PAGO</button>';
   }
   if (focusControl) (byId('cart-body').querySelector(focusControl) || byId('cart').querySelector('[data-close]')).focus();
@@ -372,7 +374,7 @@ function checkout() {
   const amounts = totals();
   byId('checkout-body').innerHTML = '<div class="checkout-welcome"><p class="eyebrow">UN MOMENTO PARA TI</p><h3>Tu bienestar empieza aquí.</h3><p>Revisa lo que elegiste y los regalos que te acompañan.</p></div><div class="checkout-items">' +
     products.filter(item => cart[item.id]).map(item => '<div class="checkout-item">' + photoMarkup(item.main) + '<div><strong>' + item.title + '</strong><small>' + cart[item.id] + ' × ' + money(item.price) + '</small></div></div>').join('') + '</div>' +
-    giftSummary() + '<p class="total"><span>Descuento web · 10 %</span><span>−' + money(amounts.savings) + '</span></p><p class="total"><span>Despacho</span><span>' + money(amounts.shipping) + '</span></p><p class="total checkout-grand"><strong>Total a pagar</strong><strong>' + money(amounts.total) + '</strong></p><p class="checkout-note">' + (isTestOrder() ? 'Pago de prueba: sin despacho.' : 'El total incluye el despacho de $3.990.') + '</p>' +
+    giftSummary() + '<p class="total"><span>Descuentos y promociones</span><span>−' + money(amounts.savings) + '</span></p><p class="total"><span>Despacho</span><span>' + money(amounts.shipping) + '</span></p><p class="total checkout-grand"><strong>Total a pagar</strong><strong>' + money(amounts.total) + '</strong></p><p class="checkout-note">' + (isTestOrder() ? 'Pago de prueba: sin despacho.' : 'El total incluye el despacho de $3.990.') + '</p>' +
     '<button class="back-cart" id="back-cart">← Volver al carrito</button>' + checkoutForm();
   openDialog('checkout');
   refreshCheckoutMap(byId('flow-checkout-form'));
@@ -399,6 +401,7 @@ document.addEventListener('click', event => {
   if (button.dataset.selectProduct) selectProduct(button.dataset.selectProduct, true);
   if ('close' in button.dataset) button.closest('dialog').close();
   if (button.dataset.open) openDialog(button.dataset.open);
+  if(button.dataset.pack){const id=button.dataset.pack,q=Number(button.dataset.quantity);if(Object.hasOwn(cart,id)&&Number.isInteger(activePromotions[id]?.[q])){cart[id]=q;save('np-nutre-pure-cart',cart);renderCart();openDialog('cart');}return;}
   if (button.dataset.add) addToCart(button.dataset.add);
   if (button.dataset.qty) changeQuantity(button.dataset.qty, Number(button.dataset.delta));
   if (button.dataset.photo) {
@@ -574,5 +577,7 @@ document.querySelectorAll('[data-count]').forEach(element => observer.observe(el
 
 window.addEventListener('DOMContentLoaded',()=>{const requested=new URLSearchParams(location.search).get('producto');if(['berberina','magnesio'].includes(requested)){selectProduct(requested,true);trackProductView(requested);}});
 
-function applyStorePrices(prices){for(const p of products){if(p.id==='prueba')continue;const n=prices[p.id];if(!Number.isInteger(n)||n<1000||n>1000000)throw Error("Precio inválido");p.price=n;const box=byId(p.id)?.querySelector('.product-price');if(box){box.querySelector('del').textContent=money(n);box.querySelector('strong').textContent=money(webPrice(p));}}renderCart();}
-fetch('/api/prices',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Precios no disponibles');return r.json()}).then(d=>applyStorePrices(d.prices)).catch(()=>{});
+function applyStorePrices(prices,promotions={}){activePromotions=promotions;for(const p of products){if(p.id==='prueba')continue;const n=prices[p.id];if(!Number.isInteger(n)||n<1000||n>1000000)throw Error("Precio inválido");p.price=n;const box=byId(p.id)?.querySelector('.product-price');if(box){box.querySelector('del').textContent=money(n);box.querySelector('strong').textContent=money(webPrice(p));}}renderPackOffers();renderCart();}
+fetch('/api/prices',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Precios no disponibles');return r.json()}).then(d=>{applyStorePrices(d.prices,d.promotions);const q=Number(new URLSearchParams(location.search).get("pack"));const id=new URLSearchParams(location.search).get("producto");if(Object.hasOwn(cart,id)&&Number.isInteger(activePromotions[id]?.[q])){cart[id]=q;save("np-nutre-pure-cart",cart);renderCart();openDialog("cart");}}).catch(()=>{});
+
+function renderPackOffers(){document.querySelectorAll('[data-packs]').forEach(box=>{const id=box.dataset.packs,p=products.find(p=>p.id===id),packs=Object.entries(activePromotions[id]||{}).sort((a,b)=>Number(a[0])-Number(b[0]));box.hidden=!packs.length;if(!packs.length){box.replaceChildren();return}const reference=activePromotions[id]?.[1]??(p.price-Math.round(p.price*.1));box.innerHTML='<h4>Compra más, paga menos por unidad</h4>'+packs.map(([q,n])=>{const saving=Math.max(0,Math.round((1-n/(reference*q))*100));return '<button type="button" data-pack="'+id+'" data-quantity="'+q+'" class="np-pack"><span><b>'+q+' '+(q==='1'?'unidad':'unidades')+'</b><small>'+money(Math.round(n/q))+' c/u</small></span><span><b>'+money(n)+'</b>'+(saving?'<small>Ahorra '+saving+'%</small>':'')+'</span></button>'}).join('');});}
