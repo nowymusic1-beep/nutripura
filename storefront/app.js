@@ -16,8 +16,8 @@ const pics = {
 };
 // Enlaces a las publicaciones de Mercado Libre. Reemplázalos por tus enlaces de referido.
 const MERCADO_LIBRE_LINKS = {
-  berberina: 'https://meli.la/1xmrdwc',
-  magnesio: 'https://meli.la/1wLmMVV'
+  berberina: 'https://meli.la/2apy1KR',
+  magnesio: 'https://meli.la/1xmrdwc'
 };
 const products = [
   { id:'berberina', title:'Berberina Nutre Pure', price:24990, tag:'BERBERINA', main:'berberina',
