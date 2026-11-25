@@ -1,3 +1,4 @@
+import {readPrices,validPrice,DEFAULT_PRICES} from "../lib/storefront-prices.js";
 import {createHmac, timingSafeEqual, randomBytes} from "node:crypto";
 import {createClient} from "@supabase/supabase-js";
 import {adapt} from "../lib/vercel-adapter.js";
@@ -23,7 +24,7 @@ export async function admin(req,res){
   const payload=Buffer.from(JSON.stringify({user,exp:Date.now()+3600000,nonce:randomBytes(16).toString("hex")})).toString("base64url");
   return res.status(200).json({token:payload+"."+mac(payload,secret+":"+mac(password))});
  }
- if(req.method!=="GET")return res.status(405).json({error:"Método no permitido"});
+ if(!["GET","PATCH"].includes(req.method))return res.status(405).json({error:"Método no permitido"});
  const token=(req.get("authorization")||"").match(/^Bearer (\S+)$/)?.[1];
  if(!token||token.length>2048)return res.status(401).json({error:"Inicia sesión"});
  const parts=token.split(".");
@@ -32,6 +33,19 @@ export async function admin(req,res){
  if(!allowed.has(session.user)||!Number.isFinite(session.exp)||session.exp<=Date.now())return res.status(401).json({error:"Sesión vencida"});
  const db=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,options);
  const url=new URL(req.originalUrl,"https://www.nutricionpura.cl");
+ if(url.searchParams.get("section")==="prices"){
+  if(req.method==="GET")return res.json(await readPrices(db));
+  if(!origin)return res.status(403).json({error:"Origen no autorizado"});
+  const body=typeof req.body==="string"?JSON.parse(req.body):req.body;
+  if(!body||!Object.hasOwn(DEFAULT_PRICES,body.id)||!validPrice(body.price))return res.status(400).json({error:"Precio inválido (entre $1.000 y $1.000.000 CLP)"});
+  const current=await readPrices(db);if(!current.editable)return res.status(503).json({error:"Falta activar tabla de precios en Supabase"});
+  if(!validPrice(body.previousPrice))return res.status(400).json({error:"Precio anterior inválido"});
+  const {data,error}=await db.from("storefront_prices").update({price_clp:body.price,updated_by:session.user,updated_at:new Date().toISOString()}).eq("id",body.id).eq("price_clp",body.previousPrice).select("id");
+  if(error)throw new Error("No se pudo guardar precio");
+  if(!data?.length)return res.status(409).json({error:"Otro administrador cambió el precio. Actualiza y vuelve a intentar."});
+  return res.json(await readPrices(db));
+ }
+ if(req.method!=="GET")return res.status(405).json({error:"Método no permitido"});
  const days=Number(url.searchParams.get("days")||30);
  if(![7,30,90].includes(days))return res.status(400).json({error:"Periodo inválido"});
  const since=new Date(Date.now()-days*86400000).toISOString();

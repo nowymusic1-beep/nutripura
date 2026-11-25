@@ -1,0 +1,3 @@
+import {adapt} from "../lib/vercel-adapter.js";
+import {readPrices} from "../lib/storefront-prices.js";
+export default adapt(async(req,res)=>{res.set("Cache-Control","no-store");if(req.method!=="GET")return res.status(405).json({error:"Método no permitido"});try{const {prices}=await readPrices();return res.json({prices});}catch{return res.status(503).json({error:"Precios temporalmente no disponibles"});}});

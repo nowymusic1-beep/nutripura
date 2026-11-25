@@ -467,6 +467,7 @@ byId('checkout-body').addEventListener('submit', async event => {
       email: value('email'),
       customer,
       items: orderItems,
+      expectedTotal: orderTotal,
       marketingConsent: marketingConsent === 'granted' && !isTestOrder(),
       eventId,
       fbp: marketingConsent === 'granted' ? getMetaCookie('_fbp') : null,
@@ -572,3 +573,6 @@ const observer = new IntersectionObserver(entries => entries.forEach(entry => {
 document.querySelectorAll('[data-count]').forEach(element => observer.observe(element));
 
 window.addEventListener('DOMContentLoaded',()=>{const requested=new URLSearchParams(location.search).get('producto');if(['berberina','magnesio'].includes(requested)){selectProduct(requested,true);trackProductView(requested);}});
+
+function applyStorePrices(prices){for(const p of products){if(p.id==='prueba')continue;const n=prices[p.id];if(!Number.isInteger(n)||n<1000||n>1000000)throw Error("Precio inválido");p.price=n;const box=byId(p.id)?.querySelector('.product-price');if(box){box.querySelector('del').textContent=money(n);box.querySelector('strong').textContent=money(webPrice(p));}}renderCart();}
+fetch('/api/prices',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Precios no disponibles');return r.json()}).then(d=>applyStorePrices(d.prices)).catch(()=>{});
