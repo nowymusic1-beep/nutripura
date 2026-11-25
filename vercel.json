@@ -34,5 +34,17 @@
       "source": "/advertorial/magnesio-cansancio",
       "destination": "/advertorial-magnesio-cansancio.html"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/advertorial/berberina-video",
+      "destination": "/berberina-video/web-1.html",
+      "permanent": false
+    },
+    {
+      "source": "/advertorial/berberina-video-meli",
+      "destination": "/berberina-video/ml-1.html",
+      "permanent": false
+    }
   ]
 }
