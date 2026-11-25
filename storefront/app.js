@@ -30,7 +30,7 @@ const products = [
     pitch:'Tres formas de magnesio (glicinato, citrato y malato) con vitamina B6, zinc, potasio y minerales traza.',
     notes:['El magnesio contribuye a disminuir el cansancio','Y al funcionamiento normal de músculos y sistema nervioso'] },
   // Producto oculto para probar pagos reales. Se abre con https://www.nutricionpura.cl/?prueba
-  { id:'prueba', hidden:true, title:'Pago de prueba', price:100, tag:'PRUEBA', main:'magnesio', slides:['magnesio'], size:'', pitch:'', notes:[] }
+  { id:'prueba', hidden:true, title:'Pago de prueba', price:400, tag:'PRUEBA', main:'magnesio', slides:['magnesio'], size:'', pitch:'', notes:[] }
 ];
 const isTestOrder = () => cart.prueba > 0;
 const webPrice = product => product.price - Math.round(product.price * .1);
