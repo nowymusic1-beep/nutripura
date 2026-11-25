@@ -16,8 +16,8 @@ const pics = {
 };
 // Enlaces a las publicaciones de Mercado Libre. Reemplázalos por tus enlaces de referido.
 const MERCADO_LIBRE_LINKS = {
-  berberina: 'https://meli.la/2apy1KR',
-  magnesio: 'https://www.mercadolibre.cl/magnesio-complex-gotas-nutre-pure-50-ml/up/MLCU5850421298'
+  berberina: 'https://meli.la/1xmrdwc',
+  magnesio: 'https://meli.la/1wLmMVV'
 };
 const products = [
   { id:'berberina', title:'Berberina Nutre Pure', price:24990, tag:'BERBERINA', main:'berberina',
@@ -194,7 +194,7 @@ function renderCart(focusControl) {
       <div class="qty"><button data-qty="${item.id}" data-delta="-1" aria-label="Quitar una unidad de ${item.title}">−</button><span>${cart[item.id]}</span><button data-qty="${item.id}" data-delta="1" ${cart[item.id] >= 99 ? "disabled" : ""} aria-label="Agregar una unidad de ${item.title}">+</button></div></div><span>${money(cart[item.id] * item.price)}</span></div>`).join('') +
       '<p class="total"><span>Subtotal</span><span>' + money(amounts.subtotal) + '</span></p>' +
       '<p class="total"><span>Descuento web 10 %</span><span>−' + money(amounts.savings) + '</span></p>' +
-      crossSell() + giftSummary() + '<p class="total"><span>Despacho</span><span>' + money(amounts.shipping) + '</span></p><p class="total"><strong>Total a pagar</strong><strong>' + money(amounts.total) + '</strong></p><button class="pill wide" id="continue-checkout">CONTINUAR AL PEDIDO</button>';
+      crossSell() + giftSummary() + '<p class="total"><span>Despacho</span><span>' + money(amounts.shipping) + '</span></p><p class="total"><strong>Total a pagar</strong><strong>' + money(amounts.total) + '</strong></p><button class="pill wide" id="continue-checkout">CONTINUAR CON EL PAGO</button>';
   }
   if (focusControl) (byId('cart-body').querySelector(focusControl) || byId('cart').querySelector('[data-close]')).focus();
 }
@@ -360,6 +360,13 @@ byId('checkout-body').addEventListener('change', event => {
   if (!form || form.id !== 'flow-checkout-form' || !fieldError[event.target.name]) return;
   if (event.target.getAttribute('aria-invalid') !== null || event.target.value) showFieldError(form, event.target.name, fieldError[event.target.name](event.target.value.trim(), form));
 });
+function choosePurchaseChannel(){
+  if(isTestOrder()){checkout();return;}
+  const ids=products.filter(p=>cart[p.id]>0&&MERCADO_LIBRE_LINKS[p.id]);
+  if(!ids.length)return;
+  byId('cart-body').innerHTML='<div class="np-channel"><p class="eyebrow">ELIGE DÓNDE COMPRAR</p><h3>¿Dónde prefieres continuar?</h3><p>Elige nuestra tienda o la publicación de Mercado Libre.</p><button type="button" class="pill wide" id="np-shop-direct">COMPRAR EN NUTRICIÓN PURA</button><p class="np-channel-note">10% de descuento web · 3 libros digitales de regalo · Flow o Mercado Pago</p><div class="np-ml-options">'+ids.map(p=>'<a class="np-ml-choice" href="'+MERCADO_LIBRE_LINKS[p.id]+'" rel="sponsored noopener">Comprar '+p.title+' en Mercado Libre ↗</a>').join('')+'</div><p class="np-channel-note">Mercado Libre tiene sus propios precios, cantidades y condiciones de despacho. Tu carrito no se transfiere automáticamente.</p><button type="button" class="back-cart" id="np-channel-back">← Volver al carrito</button></div>';
+  byId('np-shop-direct').focus();
+}
 function checkout() {
   if (!Object.values(cart).some(quantity => quantity > 0)) return;
   const amounts = totals();
@@ -401,7 +408,9 @@ document.addEventListener('click', event => {
     photo.classList.toggle('bottle-image', isBottle(button.dataset.photo));
     openDialog('photo');
   }
-  if (button.id === 'continue-checkout') checkout();
+  if (button.id === 'continue-checkout') choosePurchaseChannel();
+  if (button.id === 'np-shop-direct') {renderCart();checkout();}
+  if (button.id === 'np-channel-back') {renderCart();byId('continue-checkout')?.focus();}
   if (button.id === 'back-cart') openDialog('cart');
 });
 byId('dismiss').addEventListener('click', () => { byId('dock').hidden = true; });
