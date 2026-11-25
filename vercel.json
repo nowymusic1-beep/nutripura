@@ -9,6 +9,14 @@
     {
       "source": "/prueba",
       "destination": "/index.html"
+    },
+    {
+      "source": "/advertorial/berberina",
+      "destination": "/advertorial-berberina.html"
+    },
+    {
+      "source": "/advertorial/magnesio",
+      "destination": "/advertorial-magnesio.html"
     }
   ]
 }

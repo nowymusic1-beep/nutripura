@@ -561,3 +561,5 @@ const observer = new IntersectionObserver(entries => entries.forEach(entry => {
   requestAnimationFrame(animate);
 }), { threshold:.7 });
 document.querySelectorAll('[data-count]').forEach(element => observer.observe(element));
+
+window.addEventListener('DOMContentLoaded',()=>{const requested=new URLSearchParams(location.search).get('producto');if(['berberina','magnesio'].includes(requested)){selectProduct(requested,true);trackProductView(requested);}});
