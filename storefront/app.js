@@ -6,7 +6,7 @@ const isBottle = name => name === 'berberina' || name === 'magnesio';
 const asset = name => 'img/' + name + (isBottle(name) ? '.png' : '.webp');
 const pics = {
   hero: 'Pareja junto a los frascos Nutre Pure',
-  berberina: 'Frasco original de Berberina Nutre Pure',
+  berberina: 'https://meli.la/2apy1KR',
   magnesio: 'Frasco original de Magnesium Complex Nutre Pure',
   'berberina-escena': 'Berberina Nutre Pure en una escena botánica',
   'magnesio-escena': 'Magnesium Complex Nutre Pure con hojas y limas',
