@@ -1,0 +1,1 @@
+'use strict';const p=new URLSearchParams(location.search);document.querySelectorAll('.web a.buy').forEach(a=>{const u=new URL(a.href,location.origin);for(const [k,v] of p)if(/^utm_(source|medium|campaign|content|term|id)$/.test(k)||['fbclid','ttclid','gclid'].includes(k))u.searchParams.set(k,v.slice(0,300));a.href=u.href;});
