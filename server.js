@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
+import admin from "./api/admin.js";
 import mpCreate from "./api/mercadopago/create.js";
 import mpStatus from "./api/mercadopago/status.js";
 import mpWebhook from "./api/mercadopago/webhook.js";
@@ -28,6 +29,7 @@ app.use(express.urlencoded({ extended: false, limit: "100kb" }));
 app.all("/api/mercadopago/create", mpCreate);
 app.all("/api/mercadopago/status", mpStatus);
 app.all("/api/mercadopago/webhook", mpWebhook);
+app.all("/api/admin", admin);
 app.all("/api/flow/create", createFlowPayment);
 app.all("/api/flow/status", getFlowPaymentStatus);
 app.all("/api/flow/confirmation", flowConfirmation);
@@ -37,7 +39,8 @@ app.all("/api/address/verify", addressVerify);
 
 app.use(express.static(staticDir));
 
-app.get(["/admin", "/prueba"], (_req, res) => {
+app.get("/admin", (_req,res)=>res.sendFile(path.join(staticDir,"admin.html")));
+app.get("/prueba", (_req, res) => {
   res.sendFile(path.join(staticDir, "index.html"));
 });
 
