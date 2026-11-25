@@ -148,7 +148,7 @@ document.addEventListener('click', event => {
   if (!review) return;
   const data = ML_REVIEWS[Number(review.dataset.review)];
   byId('review-quote').innerHTML = stars(data.stars) + '<p>' + escapeHtml(data.text) + '</p>';
-  byId('review-ml-link').href = MERCADO_LIBRE_LINKS.berberina;
+  byId('review-ml-link').href = 'https://meli.la/1xmrdwc';
   openDialog('review-choice');
 });
 byId('review-buy-here')?.addEventListener('click', () => {
