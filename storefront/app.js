@@ -423,7 +423,8 @@ if (new URLSearchParams(window.location.search).has('prueba')) {
   Object.keys(cart).forEach(key => { cart[key] = key === 'prueba' ? 1 : 0; });
   save('np-nutre-pure-cart', cart);
   renderCart();
-  checkout();
+  // Espera a que cargue address-search.js, que arma los campos de región y comuna.
+  window.addEventListener('DOMContentLoaded', checkout);
 } else {
   if (cart.prueba) { cart.prueba = 0; save('np-nutre-pure-cart', cart); }
   renderCart();
