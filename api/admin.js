@@ -1,27 +1,35 @@
+import {createHmac, timingSafeEqual, randomBytes} from "node:crypto";
 import {createClient} from "@supabase/supabase-js";
 import {adapt} from "../lib/vercel-adapter.js";
 export async function admin(req,res){
  res.set("Cache-Control","private, no-store, max-age=0");
  res.set("X-Content-Type-Options","nosniff");
- const allowed=new Set((process.env.ADMIN_USER_IDS||"").split(",").map(s=>s.trim()).filter(Boolean));
- if(!allowed.size||!process.env.SUPABASE_URL||!process.env.SUPABASE_SERVICE_ROLE_KEY||!process.env.SUPABASE_PUBLISHABLE_KEY) return res.status(503).json({error:"Panel pendiente de configuración de acceso."});
+ const allowed=new Set(["rokoadmin","ramonadmin"]);
+ const password=process.env.ADMIN_SHARED_PASSWORD;
+ const secret=process.env.ADMIN_SESSION_SECRET;
+ if(!password||password.length<12||!secret||secret.length<32||!process.env.SUPABASE_URL||!process.env.SUPABASE_SERVICE_ROLE_KEY)return res.status(503).json({error:"Panel pendiente de configuración de acceso."});
  const origin=req.get("origin");
  if(origin&&origin!=="https://www.nutricionpura.cl"&&origin!=="https://nutricionpura.cl")return res.status(403).json({error:"Origen no autorizado"});
  const options={auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}};
- const auth=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_PUBLISHABLE_KEY,options);
+ const mac=(value,key=secret)=>createHmac("sha256",key).update(value).digest("base64url");
+ const equal=(a,b)=>timingSafeEqual(Buffer.from(mac(a)),Buffer.from(mac(b)));
  try{
  if(req.method==="POST"){
-  const email=req.body?.email,password=req.body?.password;
-  if(typeof email!=="string"||typeof password!=="string"||email.length>254||password.length>512)return res.status(400).json({error:"Datos inválidos"});
-  const {data,error}=await auth.auth.signInWithPassword({email,password});
-  if(error||!data.user||!allowed.has(data.user.id))return res.status(401).json({error:"Acceso no autorizado"});
-  return res.status(200).json({token:data.session.access_token});
+  const body=typeof req.body==="string"?JSON.parse(req.body):req.body;
+  const user=body?.username,pass=body?.password;
+  if(typeof user!=="string"||typeof pass!=="string"||user.length>64||pass.length>512)return res.status(400).json({error:"Datos inválidos"});
+  const matches=equal(pass,password);
+  if(!allowed.has(user)||!matches){await new Promise(r=>setTimeout(r,500));return res.status(401).json({error:"Acceso no autorizado"});}
+  const payload=Buffer.from(JSON.stringify({user,exp:Date.now()+3600000,nonce:randomBytes(16).toString("hex")})).toString("base64url");
+  return res.status(200).json({token:payload+"."+mac(payload,secret+":"+mac(password))});
  }
  if(req.method!=="GET")return res.status(405).json({error:"Método no permitido"});
  const token=(req.get("authorization")||"").match(/^Bearer (\S+)$/)?.[1];
- if(!token)return res.status(401).json({error:"Inicia sesión"});
- const {data,error}=await auth.auth.getUser(token);
- if(error||!data.user||!allowed.has(data.user.id))return res.status(401).json({error:"Acceso no autorizado"});
+ if(!token||token.length>2048)return res.status(401).json({error:"Inicia sesión"});
+ const parts=token.split(".");
+ if(parts.length!==2||!equal(parts[1],mac(parts[0],secret+":"+mac(password))))return res.status(401).json({error:"Acceso no autorizado"});
+ let session;try{session=JSON.parse(Buffer.from(parts[0],"base64url").toString("utf8"));}catch{return res.status(401).json({error:"Acceso no autorizado"});}
+ if(!allowed.has(session.user)||!Number.isFinite(session.exp)||session.exp<=Date.now())return res.status(401).json({error:"Sesión vencida"});
  const db=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,options);
  const url=new URL(req.originalUrl,"https://www.nutricionpura.cl");
  const days=Number(url.searchParams.get("days")||30);
@@ -31,7 +39,8 @@ export async function admin(req,res){
  const sources=await Promise.all(["flow_orders","mercadopago_orders"].map(async table=>{
   let rows=[],partial=false;
   for(let start=0;start<5000;start+=500){
-   const r=await db.from(table).select(fields).gte("created_at",since).order("created_at",{ascending:false}).order("id").range(start,start+499);
+   const query=cols=>db.from(table).select(cols).gte("created_at",since).order("created_at",{ascending:false}).order("id").range(start,start+499);
+   let r=await query(fields);if(table==="flow_orders"&&["42703","PGRST204"].includes(r.error?.code))r=await query(fields.replace("customer,",""));
    if(r.error)return {provider:table==="flow_orders"?"Flow":"Mercado Pago",error:true,rows:[]};
    rows.push(...r.data);if(r.data.length<500)break;if(start===4500)partial=true;
   }
