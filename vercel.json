@@ -33,6 +33,14 @@
     {
       "source": "/advertorial/magnesio-cansancio",
       "destination": "/advertorial-magnesio-cansancio.html"
+    },
+    {
+      "source": "/advertorial/magnesio-master",
+      "destination": "/magnesio-master-web.html"
+    },
+    {
+      "source": "/advertorial/magnesio-master-meli",
+      "destination": "/magnesio-master-ml.html"
     }
   ],
   "redirects": [
