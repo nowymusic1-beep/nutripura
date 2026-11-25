@@ -1,0 +1,1 @@
+'use strict';fetch('/api/prices',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json()}).then(({prices})=>{document.querySelectorAll('[data-live-price]').forEach(el=>{const n=prices[el.dataset.livePrice];if(!Number.isInteger(n))return;el.textContent='$'+new Intl.NumberFormat('es-CL').format(el.dataset.priceKind==='base'?n:n-Math.round(n*.1));});}).catch(()=>{});
