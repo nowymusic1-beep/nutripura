@@ -28,8 +28,11 @@ const products = [
   { id:'magnesio', title:'Magnesium Complex Nutre Pure', price:14850, tag:'MAGNESIO', main:'magnesio',
     slides:['magnesio'], size:'50 ml',
     pitch:'Tres formas de magnesio (glicinato, citrato y malato) con vitamina B6, zinc, potasio y minerales traza.',
-    notes:['El magnesio contribuye a disminuir el cansancio','Y al funcionamiento normal de músculos y sistema nervioso'] }
+    notes:['El magnesio contribuye a disminuir el cansancio','Y al funcionamiento normal de músculos y sistema nervioso'] },
+  // Producto oculto para probar pagos reales. Se abre con https://www.nutricionpura.cl/?prueba
+  { id:'prueba', hidden:true, title:'Pago de prueba', price:100, tag:'PRUEBA', main:'magnesio', slides:['magnesio'], size:'', pitch:'', notes:[] }
 ];
+const isTestOrder = () => cart.prueba > 0;
 const webPrice = product => product.price - Math.round(product.price * .1);
 const CROSS_SELL = {
   berberina: { offer:'magnesio', title:'¿Sumas el magnesio a tu rutina?',
@@ -116,7 +119,7 @@ function trackProductView(id) {
 function photoMarkup(name, extra = '') {
   return '<img loading="lazy"' + (isBottle(name) ? ' class="bottle-image"' : '') + ' src="' + asset(name) + '" alt="' + pics[name] + '"' + extra + '>';
 }
-byId('products').innerHTML = products.map(product => {
+byId('products').innerHTML = products.filter(product => !product.hidden).map(product => {
   const slides = product.slides;
   const rating = product.rating
     ? `<a class="product-rating" href="#opiniones"><span aria-hidden="true">★★★★★</span> ${product.rating.value} · ${product.rating.count} opiniones en Mercado Libre</a>`
@@ -172,6 +175,7 @@ document.querySelectorAll('.product').forEach(product => {
 
 function totals() {
   const subtotal = products.reduce((amount, item) => amount + cart[item.id] * item.price, 0);
+  if (isTestOrder()) return { subtotal, savings:0, shipping:0, total:subtotal };
   const savings = Math.round(subtotal * .1);
   return { subtotal, savings, shipping:SHIPPING_FEE, total:subtotal - savings + SHIPPING_FEE };
 }
@@ -196,7 +200,7 @@ function renderCart(focusControl) {
 }
 function crossSell() {
   const inCart = products.filter(item => cart[item.id] > 0).map(item => item.id);
-  if (inCart.length !== 1) return '';
+  if (inCart.length !== 1 || !CROSS_SELL[inCart[0]]) return '';
   const pitch = CROSS_SELL[inCart[0]];
   const offer = products.find(item => item.id === pitch.offer);
   return '<div class="cross-sell">' + photoMarkup(offer.main) + '<div><strong>' + pitch.title + '</strong><p>' + pitch.text + '</p>' +
@@ -308,7 +312,7 @@ function checkout() {
   const amounts = totals();
   byId('checkout-body').innerHTML = '<div class="checkout-welcome"><p class="eyebrow">UN MOMENTO PARA TI</p><h3>Tu bienestar empieza aquí.</h3><p>Revisa lo que elegiste y los regalos que te acompañan.</p></div><div class="checkout-items">' +
     products.filter(item => cart[item.id]).map(item => '<div class="checkout-item">' + photoMarkup(item.main) + '<div><strong>' + item.title + '</strong><small>' + cart[item.id] + ' × ' + money(item.price) + '</small></div></div>').join('') + '</div>' +
-    giftSummary() + '<p class="total"><span>Descuento web · 10 %</span><span>−' + money(amounts.savings) + '</span></p><p class="total"><span>Despacho</span><span>' + money(amounts.shipping) + '</span></p><p class="total checkout-grand"><strong>Total a pagar</strong><strong>' + money(amounts.total) + '</strong></p><p class="checkout-note">El total incluye el despacho de $3.990.</p>' +
+    giftSummary() + '<p class="total"><span>Descuento web · 10 %</span><span>−' + money(amounts.savings) + '</span></p><p class="total"><span>Despacho</span><span>' + money(amounts.shipping) + '</span></p><p class="total checkout-grand"><strong>Total a pagar</strong><strong>' + money(amounts.total) + '</strong></p><p class="checkout-note">' + (isTestOrder() ? 'Pago de prueba: sin despacho.' : 'El total incluye el despacho de $3.990.') + '</p>' +
     '<button class="back-cart" id="back-cart">← Volver al carrito</button>' + checkoutForm();
   openDialog('checkout');
 }
@@ -394,7 +398,7 @@ byId('checkout-body').addEventListener('submit', async event => {
       email: value('email'),
       customer,
       items: orderItems,
-      marketingConsent: marketingConsent === 'granted',
+      marketingConsent: marketingConsent === 'granted' && !isTestOrder(),
       eventId,
       fbp: marketingConsent === 'granted' ? getMetaCookie('_fbp') : null,
       fbc: marketingConsent === 'granted' ? getMetaCookie('_fbc') : null
@@ -415,7 +419,15 @@ byId('checkout-body').addEventListener('submit', async event => {
     submitButton.textContent = 'PAGAR CON FLOW';
   });
 });
-renderCart();
+if (new URLSearchParams(window.location.search).has('prueba')) {
+  Object.keys(cart).forEach(key => { cart[key] = key === 'prueba' ? 1 : 0; });
+  save('np-nutre-pure-cart', cart);
+  renderCart();
+  checkout();
+} else {
+  if (cart.prueba) { cart.prueba = 0; save('np-nutre-pure-cart', cart); }
+  renderCart();
+}
 
 const escapeName = text => String(text).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 let flowReturnToken = '';
