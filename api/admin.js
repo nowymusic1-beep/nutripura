@@ -1,4 +1,4 @@
-import {readPrices,validPrice,DEFAULT_PRICES} from "../lib/storefront-prices.js";
+import {readPrices,validPrice,DEFAULT_PRICES,validPromotions} from "../lib/storefront-prices.js";
 import {createHmac, timingSafeEqual, randomBytes} from "node:crypto";
 import {createClient} from "@supabase/supabase-js";
 import {adapt} from "../lib/vercel-adapter.js";
@@ -33,6 +33,17 @@ export async function admin(req,res){
  if(!allowed.has(session.user)||!Number.isFinite(session.exp)||session.exp<=Date.now())return res.status(401).json({error:"Sesión vencida"});
  const db=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,options);
  const url=new URL(req.originalUrl,"https://www.nutricionpura.cl");
+ if(url.searchParams.get("section")==="promotions"){
+  if(req.method==="GET")return res.json(await readPrices(db));
+  if(!origin)return res.status(403).json({error:"Origen no autorizado"});
+  const body=typeof req.body==="string"?JSON.parse(req.body):req.body;
+  if(!body||!Object.hasOwn(DEFAULT_PRICES,body.id)||!validPromotions(body.promotions))return res.status(400).json({error:"Promoción inválida"});
+  const current=await readPrices(db);if(!current.promoEditable)return res.status(503).json({error:"Falta activar las promociones en Supabase"});
+  const entries=Object.entries(body.promotions).sort((a,b)=>Number(a[0])-Number(b[0]));
+  if(entries.some(([q,n],i)=>n>current.prices[body.id]*Number(q)-Math.round(current.prices[body.id]*Number(q)*.1)||(i>0&&n<entries[i-1][1])))return res.status(400).json({error:"El total de cada pack debe aumentar con la cantidad y no superar el precio web habitual."});
+  const {error}=await db.from("storefront_prices").update({promotions:body.promotions,updated_by:session.user,updated_at:new Date().toISOString()}).eq("id",body.id);
+  if(error)throw new Error("No se pudo guardar promoción");return res.json(await readPrices(db));
+ }
  if(url.searchParams.get("section")==="prices"){
   if(req.method==="GET")return res.json(await readPrices(db));
   if(!origin)return res.status(403).json({error:"Origen no autorizado"});
@@ -40,6 +51,7 @@ export async function admin(req,res){
   if(!body||!Object.hasOwn(DEFAULT_PRICES,body.id)||!validPrice(body.price))return res.status(400).json({error:"Precio inválido (entre $1.000 y $1.000.000 CLP)"});
   const current=await readPrices(db);if(!current.editable)return res.status(503).json({error:"Falta activar tabla de precios en Supabase"});
   if(!validPrice(body.previousPrice))return res.status(400).json({error:"Precio anterior inválido"});
+  if(Object.entries(current.promotions?.[body.id]||{}).some(([q,n])=>n>body.price*Number(q)-Math.round(body.price*Number(q)*.1)))return res.status(400).json({error:"Desactiva o modifica los packs antes de bajar el precio base."});
   const {data,error}=await db.from("storefront_prices").update({price_clp:body.price,updated_by:session.user,updated_at:new Date().toISOString()}).eq("id",body.id).eq("price_clp",body.previousPrice).select("id");
   if(error)throw new Error("No se pudo guardar precio");
   if(!data?.length)return res.status(409).json({error:"Otro administrador cambió el precio. Actualiza y vuelve a intentar."});

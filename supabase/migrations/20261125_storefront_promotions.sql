@@ -1,0 +1,1 @@
+alter table public.storefront_prices add column if not exists promotions jsonb not null default '{}'::jsonb check (jsonb_typeof(promotions)='object');
