@@ -1,7 +1,7 @@
 'use strict';
 
 const byId = id => document.getElementById(id);
-const money = value => '$' + new Intl.NumberFormat('es-CL').format(value);
+const money = value => Number.isFinite(value) ? '$' + new Intl.NumberFormat('es-CL').format(value) : '…';
 const isBottle = name => name === 'berberina' || name === 'magnesio';
 const asset = name => 'img/' + name + (isBottle(name) ? '.png' : '.webp');
 const pics = {
@@ -20,12 +20,12 @@ const MERCADO_LIBRE_LINKS = {
   magnesio: 'https://meli.la/1xmrdwc'
 };
 const products = [
-  { id:'berberina', title:'Berberina Nutre Pure', price:24990, tag:'BERBERINA', main:'berberina',
+  { id:'berberina', title:'Berberina Nutre Pure', price:null, tag:'BERBERINA', main:'berberina',
     slides:['berberina'], size:'60 ml',
     pitch:'Fórmula 7 en 1 con berberina, canela de Ceilán, cromo, melón amargo, cúrcuma, ginseng y glucomanano.',
     rating:{ value:'4,4', count:110 },
     notes:['7 componentes en una sola fórmula líquida','Unas gotas en agua, con suave sabor a frambuesa'] },
-  { id:'magnesio', title:'Magnesium Complex Nutre Pure', price:14850, tag:'MAGNESIO', main:'magnesio',
+  { id:'magnesio', title:'Magnesium Complex Nutre Pure', price:null, tag:'MAGNESIO', main:'magnesio',
     slides:['magnesio'], size:'50 ml',
     pitch:'Tres formas de magnesio (glicinato, citrato y malato) con vitamina B6, zinc, potasio y minerales traza.',
     notes:['El magnesio contribuye a disminuir el cansancio','Y al funcionamiento normal de músculos y sistema nervioso'] },
@@ -34,7 +34,7 @@ const products = [
 ];
 const isTestOrder = () => cart.prueba > 0;
 let activePromotions = {};
-const webPrice = product => activePromotions[product.id]?.[1] ?? (product.price - Math.round(product.price * .1));
+const webPrice = product => Number.isInteger(product.price) ? (activePromotions[product.id]?.[1] ?? (product.price - Math.round(product.price * .1))) : null;
 const CROSS_SELL = {
   berberina: { offer:'magnesio', title:'¿Sumas el magnesio a tu rutina?',
     text:'Magnesium Complex combina 3 formas de magnesio con vitamina B6, zinc y potasio. El magnesio contribuye a disminuir el cansancio y al funcionamiento normal de los músculos.' },
@@ -108,7 +108,7 @@ function selectProduct(id, scroll = false) {
 function trackProductView(id) {
   if (viewedProductIds.has(id)) return;
   const product = products.find(item => item.id === id);
-  if (!product) return;
+  if (!product || !Number.isInteger(product.price)) return;
   trackMeta('ViewContent', {
     content_ids: [id],
     content_type: 'product',
@@ -578,6 +578,6 @@ document.querySelectorAll('[data-count]').forEach(element => observer.observe(el
 window.addEventListener('DOMContentLoaded',()=>{const requested=new URLSearchParams(location.search).get('producto');if(['berberina','magnesio'].includes(requested)){selectProduct(requested,true);trackProductView(requested);}});
 
 function applyStorePrices(prices,promotions={}){activePromotions=promotions;for(const p of products){if(p.id==='prueba')continue;const n=prices[p.id];if(!Number.isInteger(n)||n<1000||n>1000000)throw Error("Precio inválido");p.price=n;const box=byId(p.id)?.querySelector('.product-price');if(box){box.querySelector('del').textContent=money(n);box.querySelector('strong').textContent=money(webPrice(p));}}renderPackOffers();renderCart();}
-fetch('/api/prices',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Precios no disponibles');return r.json()}).then(d=>{applyStorePrices(d.prices,d.promotions);const q=Number(new URLSearchParams(location.search).get("pack"));const id=new URLSearchParams(location.search).get("producto");if(Object.hasOwn(cart,id)&&Number.isInteger(activePromotions[id]?.[q])){cart[id]=q;save("np-nutre-pure-cart",cart);renderCart();openDialog("cart");}}).catch(()=>{});
+fetch('/api/prices',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Precios no disponibles');return r.json()}).then(d=>{applyStorePrices(d.prices,d.promotions);const viewed=new URLSearchParams(location.search).get('producto');if(['berberina','magnesio'].includes(viewed))trackProductView(viewed);const q=Number(new URLSearchParams(location.search).get("pack"));const id=new URLSearchParams(location.search).get("producto");if(Object.hasOwn(cart,id)&&Number.isInteger(activePromotions[id]?.[q])){cart[id]=q;save("np-nutre-pure-cart",cart);renderCart();openDialog("cart");}}).catch(()=>{});
 
 function renderPackOffers(){document.querySelectorAll('[data-packs]').forEach(box=>{const id=box.dataset.packs,p=products.find(p=>p.id===id),packs=Object.entries(activePromotions[id]||{}).sort((a,b)=>Number(a[0])-Number(b[0]));box.hidden=!packs.length;if(!packs.length){box.replaceChildren();return}const reference=activePromotions[id]?.[1]??(p.price-Math.round(p.price*.1));box.innerHTML='<h4>Compra más, paga menos por unidad</h4>'+packs.map(([q,n])=>{const saving=Math.max(0,Math.round((1-n/(reference*q))*100));return '<button type="button" data-pack="'+id+'" data-quantity="'+q+'" class="np-pack"><span><b>'+q+' '+(q==='1'?'unidad':'unidades')+'</b><small>'+money(Math.round(n/q))+' c/u</small></span><span><b>'+money(n)+'</b>'+(saving?'<small>Ahorra '+saving+'%</small>':'')+'</span></button>'}).join('');});}
