@@ -8,29 +8,45 @@ export async function admin(req,res){
  const allowed=new Set(["rokoadmin","ramonadmin"]);
  const password=process.env.ADMIN_SHARED_PASSWORD;
  const secret=process.env.ADMIN_SESSION_SECRET;
- if(!password||password.length<12||!secret||secret.length<32||!process.env.SUPABASE_URL||!process.env.SUPABASE_SERVICE_ROLE_KEY)return res.status(503).json({error:"Panel pendiente de configuración de acceso."});
+ const passOk=!!password&&password.length>=12;
+ const googleId=process.env.GOOGLE_CLIENT_ID||"";
+ const emails=new Set((process.env.ADMIN_ALLOWED_EMAILS||"").toLowerCase().split(",").map(e=>e.trim()).filter(Boolean));
+ const googleOn=!!googleId&&emails.size>0;
+ if((!passOk&&!googleOn)||!secret||secret.length<32||!process.env.SUPABASE_URL||!process.env.SUPABASE_SERVICE_ROLE_KEY)return res.status(503).json({error:"Panel pendiente de configuración de acceso."});
  const origin=req.get("origin");
  if(origin&&origin!=="https://www.nutricionpura.cl"&&origin!=="https://nutricionpura.cl")return res.status(403).json({error:"Origen no autorizado"});
  const options={auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}};
  const mac=(value,key=secret)=>createHmac("sha256",key).update(value).digest("base64url");
  const equal=(a,b)=>timingSafeEqual(Buffer.from(mac(a)),Buffer.from(mac(b)));
+ const signKey=secret+":"+mac(password||"");
  try{
+ if(req.method==="GET"&&new URL(req.originalUrl,"https://www.nutricionpura.cl").searchParams.get("section")==="config")return res.json({googleClientId:googleOn?googleId:null,passwordLogin:passOk});
  if(req.method==="POST"){
   const body=typeof req.body==="string"?JSON.parse(req.body):req.body;
+  if(typeof body?.credential==="string"){
+   if(!googleOn||body.credential.length>4096)return res.status(401).json({error:"Acceso no autorizado"});
+   let info;try{const r=await fetch("https://oauth2.googleapis.com/tokeninfo?id_token="+encodeURIComponent(body.credential),{signal:AbortSignal.timeout(5000)});if(!r.ok)throw 0;info=await r.json();}catch{await new Promise(r=>setTimeout(r,500));return res.status(401).json({error:"Acceso no autorizado"});}
+   const email=String(info.email||"").toLowerCase();
+   const valid=info.aud===googleId&&["accounts.google.com","https://accounts.google.com"].includes(info.iss)&&String(info.email_verified)==="true"&&Number(info.exp)*1000>Date.now()&&emails.has(email);
+   if(!valid){await new Promise(r=>setTimeout(r,500));return res.status(401).json({error:"Esta cuenta de Google no tiene acceso."});}
+   const payload=Buffer.from(JSON.stringify({user:email,exp:Date.now()+3600000,nonce:randomBytes(16).toString("hex")})).toString("base64url");
+   return res.status(200).json({token:payload+"."+mac(payload,signKey)});
+  }
+  if(!passOk)return res.status(401).json({error:"Acceso no autorizado"});
   const user=body?.username,pass=body?.password;
   if(typeof user!=="string"||typeof pass!=="string"||user.length>64||pass.length>512)return res.status(400).json({error:"Datos inválidos"});
   const matches=equal(pass,password);
   if(!allowed.has(user)||!matches){await new Promise(r=>setTimeout(r,500));return res.status(401).json({error:"Acceso no autorizado"});}
   const payload=Buffer.from(JSON.stringify({user,exp:Date.now()+3600000,nonce:randomBytes(16).toString("hex")})).toString("base64url");
-  return res.status(200).json({token:payload+"."+mac(payload,secret+":"+mac(password))});
+  return res.status(200).json({token:payload+"."+mac(payload,signKey)});
  }
  if(!["GET","PATCH"].includes(req.method))return res.status(405).json({error:"Método no permitido"});
  const token=(req.get("authorization")||"").match(/^Bearer (\S+)$/)?.[1];
  if(!token||token.length>2048)return res.status(401).json({error:"Inicia sesión"});
  const parts=token.split(".");
- if(parts.length!==2||!equal(parts[1],mac(parts[0],secret+":"+mac(password))))return res.status(401).json({error:"Acceso no autorizado"});
+ if(parts.length!==2||!equal(parts[1],mac(parts[0],signKey)))return res.status(401).json({error:"Acceso no autorizado"});
  let session;try{session=JSON.parse(Buffer.from(parts[0],"base64url").toString("utf8"));}catch{return res.status(401).json({error:"Acceso no autorizado"});}
- if(!allowed.has(session.user)||!Number.isFinite(session.exp)||session.exp<=Date.now())return res.status(401).json({error:"Sesión vencida"});
+ if(!((passOk&&allowed.has(session.user))||(googleOn&&emails.has(session.user)))||!Number.isFinite(session.exp)||session.exp<=Date.now())return res.status(401).json({error:"Sesión vencida"});
  const db=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,options);
  const url=new URL(req.originalUrl,"https://www.nutricionpura.cl");
  if(url.searchParams.get("section")==="promotions"){
