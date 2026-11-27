@@ -131,7 +131,7 @@ byId('products').innerHTML = products.filter(product => !product.hidden).map(pro
       <span class="product-badge">−10 % web</span>
     </div>
     <div class="product-body">
-      <span class="tag">${product.tag} · ${product.size}</span><h3>${product.title}</h3>${rating}
+      <span class="tag">${product.tag} · ${product.size}</span><h3><a class="product-link" href="/producto/${product.id}">${product.title}</a></h3>${rating}
       <p class="product-pitch">${product.pitch}</p>
       <ul>${product.notes.map(note => '<li>' + note + '</li>').join('')}</ul>
       <div class="product-buy">

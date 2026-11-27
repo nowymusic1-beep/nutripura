@@ -41,6 +41,14 @@
     {
       "source": "/advertorial/magnesio-master-meli",
       "destination": "/magnesio-master-ml.html"
+    },
+    {
+      "source": "/producto/berberina",
+      "destination": "/producto-berberina.html"
+    },
+    {
+      "source": "/producto/magnesio",
+      "destination": "/producto-magnesio.html"
     }
   ],
   "redirects": [

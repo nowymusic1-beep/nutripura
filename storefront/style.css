@@ -281,3 +281,5 @@ a.product-rating:hover{text-decoration:underline}
 .np-channel{display:grid;gap:12px;padding:10px 0}.np-channel h3,.np-channel p{margin:0}.np-channel h3{font-size:24px;line-height:1.2}.np-channel-note{font-size:13px;line-height:1.5}.np-ml-options{display:grid;gap:10px}.np-ml-choice{display:block;background:#ffe600;color:#243248;text-decoration:none;font-weight:700;padding:16px;border-radius:10px;text-align:center;line-height:1.4}.np-ml-choice:focus-visible{outline:3px solid currentColor;outline-offset:3px}
 
 .np-packs:not([hidden]){display:grid;gap:8px;margin:15px 0}.np-pack{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:12px;border:1px solid #b8cdbd;border-radius:10px;background:#f2f7ee;color:#193e30;text-align:left;cursor:pointer}.np-pack span:last-child{text-align:right}.np-pack small{display:block;font-size:12px;color:#456d4c}.np-packs h4{margin:0;font-size:16px}
+
+.product h3 .product-link{color:inherit;text-decoration:none}.product h3 .product-link:hover,.product h3 .product-link:focus-visible{text-decoration:underline}
